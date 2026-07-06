@@ -2,12 +2,107 @@
 
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use App\Models\User;
+use Flux\Flux;
+use Livewire\WithPagination;
 
 new class extends Component {
     
     use WithFileUploads;
+    use WithPagination;
 
     public $avatar;
+    public $firstName;
+    public $middleName;
+    public $lastName;
+    public $username;
+    public $password;
+
+    public function save()
+    {
+        // Validate the input fields
+        $this->validate([
+            'firstName' => 'required|string|max:255',
+            'middleName' => 'nullable|string|max:255',
+            'lastName' => 'required|string|max:255',
+            'avatar' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'username' => 'required|string|max:255|unique:users,username',
+            'password' => 'required|string|min:8',
+        ]);
+
+        
+        $data = [
+            'firstname' => $this->firstName,
+            'middlename' => $this->middleName,
+            'lastname'   => $this->lastName,
+            'avatar'     => $this->avatar,
+            'username'   => $this->username,
+            'password'   => $this->password,
+        ];
+
+
+        // Handle avatar upload if provided
+        if ($this->avatar) {
+            $avatarPath = $this->avatar->store('avatars', 'public');
+        } else {
+            $avatarPath = null;
+        }
+
+        // Create the user
+        User::create([
+            'firstname' => $this->firstName,
+            'middlename' => $this->middleName,
+            'lastname' => $this->lastName,
+            'username' => $this->username,
+            'password' => bcrypt($this->password),
+            'avatar' => $avatarPath,
+        ]);
+
+        // Reset the form fields
+        $this->reset();
+
+        // Close the modal
+        flux::modal('create-user')->close();
+
+        // Show a success message
+        Flux::toast(
+            heading: 'User Created',
+            text: 'The user has been successfully created.',
+            variant: 'success'
+        );
+    }
+
+    public function render()
+    {
+        $users = User::paginate(2);
+
+        return view('components.users.⚡index',[
+            'users' => $users
+        ]);
+    }
+
+    public function deleteUser($userId)
+    {
+        $user = User::find($userId);
+
+        if ($user) {
+            $user->delete();
+
+            // Show a success message
+            Flux::toast(
+                heading: 'User Deleted',
+                text: 'The user has been successfully deleted.',
+                variant: 'success'
+            );
+        } else {
+            // Show an error message if the user is not found
+            Flux::toast(
+                heading: 'User Not Found',
+                text: 'The user could not be found.',
+                variant: 'error'
+            );
+        }
+    }
 
 };
 ?>
@@ -20,64 +115,33 @@ new class extends Component {
     </div>
     <div class="flex items-center gap-3">
         <flux:field class="w-32">
-            <flux:input wire:model.live.debounce.300ms="givenName" icon="magnifying-glass" placeholder="Given Name" size="sm" />
-        </flux:field>
-        <flux:field class="w-64">
-            <flux:input wire:model.live.debounce.300ms="middleName" icon="magnifying-glass" placeholder="Middle Name" size="sm" />
+            <flux:input wire:model.live.debounce.300ms="firstname" icon="magnifying-glass" placeholder="search user" size="sm" />
         </flux:field>
 
-        <flux:field class="w-64">
-            <flux:input wire:model.live.debounce.300ms="lastName" icon="magnifying-glass" placeholder="Last Name" size="sm" />
-        </flux:field>
-        <flux:field class="w-64">
-            <flux:input wire:model.live.debounce.300ms="subName" icon="magnifying-glass"
-                placeholder="Suffix (e.g Jr, Sr, I, II, III)" size="sm" />
-        </flux:field>
         <flux:modal.trigger name="create-user">
             <flux:button size="sm" variant="primary" color="sky">Add User</flux:button>
         </flux:modal.trigger>
     </div>
-    {{-- <flux:table :paginate="$members" sticky class="table-stripped">
+    <flux:table :paginate="$users" sticky class="table-stripped">
         <flux:table.columns>
-            <flux:table.column>Member Name</flux:table.column>
-            <flux:table.column>Address</flux:table.column>
-            <flux:table.column>Verification</flux:table.column>
-            <flux:table.column>Membership No</flux:table.column>
-            <flux:table.column>Membership Type</flux:table.column>
+            <flux:table.column>Member</flux:table.column>
+            <flux:table.column>Username</flux:table.column>
             <flux:table.column></flux:table.column>
         </flux:table.columns>
 
         <flux:table.rows>
-            @forelse ($members as $member)
+            @forelse ($users as $user)
                 <flux:table.row>
-                        <flux:table.cell>{{ $member->GivenName ?? 'null' }} {{ $member->MiddleName ?? 'null' }} {{ $member->FamilyName ?? null }} {{ $member->subName ?? null}}</flux:table.cell>
-                        <flux:table.cell>
-                            {{ $member->BrgyAddress }},
-                            {{ $member->TownAddress }}
-                        </flux:table.cell>
-                        <flux:table.cell>
-                            @if ($member->member_Type === 'Member')
-                                @if ($member->verified === 'True')
-                                    <flux:badge size="sm" color="lime">Verified</flux:badge>
-                                @else
-                                    <flux:badge size="sm" color="orange">Unverified</flux:badge>
-                                @endif
-                            @elseif ($member->member_Type === 'Co-member')
-                                @if ($member->verified === 'False')
-                                    <flux:badge size="sm" color="lime">Verified</flux:badge>
-                                @endif
-                            @endif
-                        </flux:table.cell>
-                        <flux:table.cell>
-                            <flux:badge color="zinc" size="sm" variant="subtle" style="letter-spacing:2px;">{{ $member->membershipNo ?? '--' }}</flux:badge>
-                        </flux:table.cell>
-                        <flux:table.cell>
-                            @if ($member->member_Type === 'Member')
-                                <flux:badge size="sm" color="green">Member</flux:badge>
-                            @elseif ($member->member_Type === 'Co-member')
-                                <flux:badge size="sm" color="blue">Co-Member</flux:badge>
-                            @endif
-                        </flux:table.cell>
+                     <flux:table.cell class="flex items-center gap-3">
+                        <flux:avatar
+                            size="xs"
+                            src="{{ asset('storage/' . $user->avatar) }}"
+                        />
+                        {{ $user->firstname ?? 'null' }} {{ $user->middlename ?? 'null' }} {{ $user->lastname ?? null }} {{ $user->subName ?? null}}
+                    </flux:table.cell>
+                    <flux:table.cell>
+                        {{ $user->username ?? 'null' }}
+                    </flux:table.cell>
                         <flux:table.cell>
                             <flux:button 
                                 icon="eye"
@@ -85,24 +149,22 @@ new class extends Component {
                                 variant="primary"
                                 size="sm"
                                 class="cursor-pointer"
-                                href="{{ route('members.view', [
-                                        'xR' => $member->xR,
-                                        'membershipNo' => $member->membershipNo,
-                                ]) }}"
+                                wire:click="deleteUser('{{ $user->id }}')"
+                                confirm="Are you sure you want to delete this user?"
                                 >
-                                View 
+                                Delete 
                             </flux:button>
-                            <flux:button 
+                            {{-- <flux:button 
                                 icon="plus-circle"
                                 color="blue"
                                 variant="primary"
                                 size="sm"
                                 class="cursor-pointer"
-                                wire:click="checkRegistration('{{ $member->xR }}', '{{ $member->membershipNo }}')"
-                                confirm="Are you sure you want to register this member?"
+                                wire:click="checkRegistration('{{ $user->xR }}', '{{ $user->membershipNo }}')"
+                                confirm="Are you sure you want to register this user?"
                                 >
                                 Register
-                            </flux:button>
+                            </flux:button> --}}
                         </flux:table.cell>
                     </flux:table.row>
             @empty
@@ -113,7 +175,7 @@ new class extends Component {
                 </flux:table.row>
             @endforelse
         </flux:table.rows>
-    </flux:table> --}}
+    </flux:table>
 
 <flux:modal name="create-user" class="w-full max-w-7xl max-h-[90vh] overflow-y-auto">
     <div class="space-y-6">
@@ -130,8 +192,9 @@ new class extends Component {
 
                 <!-- Avatar Upload -->
                 <div class="flex flex-col items-center">
+                    <form wire:submit="save">
                     <label for="avatar" class="group relative cursor-pointer">
-                        <div class="w-36 h-36 rounded-full border-2 border-dashed border-zinc-300 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center group-hover:border-blue-500 transition">
+                        <div class="w-15 h-15 rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center group-hover:border-blue-500 transition">
 
                             @if ($avatar ?? null)
                                 <img
@@ -176,51 +239,43 @@ new class extends Component {
 
                 <flux:input
                     label="First Name"
+                    wire:model="firstName"
                     placeholder="Enter first name"
                 />
                 <flux:input
                     label="Middle Name"
+                    wire:model="middleName"
                     placeholder="Enter middle name"
                 />
                 <flux:input
                     label="Last Name"
+                    wire:model="lastName"
                     placeholder="Enter last name"
                 />
 
-                <flux:input
-                    label="suffix"
-                    placeholder="suffix (e.g Jr, Sr, I, II, III)"
-                />
             </div>
 
             <!-- Right Column -->
-            <div class="space-y-4 mt-2">
+            <div class="space-y-4 mt-3">
                 <flux:input
                     label="Username"
+                    wire:model="username"
                     placeholder="Enter username"
                 />
-                 <flux:input
+                <flux:input
                     label="Password"
                     type="password"
+                    wire:model="password"
                     placeholder="Enter password"
                 />
 
-                <flux:input
-                    label="Phone Number"
-                />
-
-                <flux:input
-                    label="Date of Birth"
-                    type="date"
-                />
             </div>
         </div>
 
         <div class="flex justify-end">
-            <flux:button variant="primary">
-                Save User
-            </flux:button>
+           <flux:button type="submit" variant="primary" class="cursor-pointer">Save</flux:button>
         </div>
+        </form>
     </div>
 </flux:modal>
 
