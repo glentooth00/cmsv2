@@ -12,6 +12,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('/users/{user}', 'users.view')->name('users.show');
     Route::livewire('/contract-types', 'contract-types.index')->name('contractTypes.index');
 
+    Route::livewire('/contracts', 'contracts.index')->name('contracts.index');
+
 });
 
 require __DIR__.'/settings.php';
