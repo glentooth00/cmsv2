@@ -17,6 +17,7 @@ new class extends Component {
     public $lastName;
     public $username;
     public $password;
+    public $user; // Property to hold the user data for viewing
 
     public function save()
     {
@@ -104,6 +105,25 @@ new class extends Component {
         }
     }
 
+    public function viewUser($userId)
+    {
+        $user = User::find($userId);
+
+        if (! $user) {
+            Flux::toast(
+                heading: 'User Not Found',
+                text: 'The user could not be found.',
+                variant: 'danger',
+            );
+
+            return;
+        }
+
+        $this->user = $user;
+
+        $this->dispatch('open-modal', name: 'view-user');
+    }
+
 };
 ?>
 
@@ -134,7 +154,6 @@ new class extends Component {
                 <flux:table.row>
                      <flux:table.cell class="flex items-center gap-3">
                         <flux:avatar
-                            size="xs"
                             src="{{ asset('storage/' . $user->avatar) }}"
                         />
                         {{ $user->firstname ?? 'null' }} {{ $user->middlename ?? 'null' }} {{ $user->lastname ?? null }} {{ $user->subName ?? null}}
@@ -149,10 +168,10 @@ new class extends Component {
                                 variant="primary"
                                 size="sm"
                                 class="cursor-pointer"
-                                wire:click="deleteUser('{{ $user->id }}')"
-                                confirm="Are you sure you want to delete this user?"
+                                :href="route('users.show', $user->id)"
+                                wire:navigate
                                 >
-                                Delete 
+                                View
                             </flux:button>
                             {{-- <flux:button 
                                 icon="plus-circle"
@@ -277,6 +296,10 @@ new class extends Component {
         </div>
         </form>
     </div>
+</flux:modal>
+
+<flux:modal name="view-user">
+    ...
 </flux:modal>
 
 </div>

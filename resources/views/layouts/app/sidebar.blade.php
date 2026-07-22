@@ -26,7 +26,7 @@
                     </flux:sidebar.item>
                 </flux:sidebar.group>
                 <flux:sidebar.group expandable :expanded="false" :heading="__('Contracts')" class="grid">
-                    <flux:sidebar.item icon="document" class="cursor-pointer">
+                    <flux:sidebar.item icon="document" class="cursor-pointer" :href="route('contracts.index')" :current="request()->routeIs('contract.index')" wire:navigate>
                         {{ __('Active Contracts') }}
                     </flux:sidebar.item>
                     <flux:sidebar.item icon="document-text" class="cursor-pointer">
