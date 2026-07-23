@@ -402,7 +402,7 @@ new class extends Component
                 <flux:input
                     label="Uploaded On"
                     :value="$contract->created_at->format('F d, Y h:i A')"
-                    :disabled="!$editing"
+                    disabled
                 />
             </div>
 
