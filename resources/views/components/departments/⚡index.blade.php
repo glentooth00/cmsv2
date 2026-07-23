@@ -1,5 +1,3 @@
-
-
 <?php 
 use Livewire\Component;
 use Livewire\WithPagination;
