@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Flux\Flux;
+use App\Livewire\Contracts\ViewContract;
 
 Route::view('/', 'welcome')->name('home');
 
@@ -13,6 +14,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('/contract-types', 'contract-types.index')->name('contractTypes.index');
 
     Route::livewire('/contracts', 'contracts.index')->name('contracts.index');
+    Route::livewire('/contracts/{contract}','contracts.view')->name('contracts.view');
 
 });
 
