@@ -43,7 +43,11 @@
                         {{ __('Users') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
-                
+                 <flux:sidebar.group :heading="__('')" class="grid">
+                    <flux:sidebar.item icon="building-library" :href="route('departments.index')" class="cursor-pointer" :current="request()->routeIs('department.index')" wire:navigate>
+                        {{ __('Department') }}
+                    </flux:sidebar.item>
+                </flux:sidebar.group>
             </flux:sidebar.nav>
 
             <flux:spacer />
