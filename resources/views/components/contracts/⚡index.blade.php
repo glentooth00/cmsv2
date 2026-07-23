@@ -23,6 +23,17 @@ new class extends Component
     public $uploaded_by;
     public $contract_file;
 
+    public function mount()
+    {
+        $user = auth()->user();
+
+        $this->uploaded_by = trim(
+            $user->firstname . ' ' .
+            $user->middlename . ' ' .
+            $user->lastname
+        );
+    }
+
     public function save()
     {
         $this->validate([
@@ -83,6 +94,14 @@ new class extends Component
             'types' => $types
         ]);
     }
+
+    public function openCreateContract()
+    {
+        $this->uploaded_by = auth()->user()?->firstname;
+        $this->uploader_dept = auth()->user()?->department ?? '';
+        
+        Flux::modal('create-contract')->show();
+    }
 };
 ?>
 <div class="space-y-4">
@@ -106,29 +125,28 @@ new class extends Component
             />
         </flux:field>
 
-        <flux:modal.trigger name="create-contract">
-            <flux:button
-                size="sm"
-                variant="primary"
-                color="sky"
-                class="cursor-pointer"
-            >
-                Add Contract
-            </flux:button>
-        </flux:modal.trigger>
+        <flux:button
+            size="sm"
+            variant="primary"
+            color="sky"
+            class="cursor-pointer"
+            wire:click="openCreateContract"
+        >
+            Add Contract
+        </flux:button>
 
     </div>
 
     <flux:table :paginate="$contracts" sticky class="table-stripped">
 
         <flux:table.columns>
-            <flux:table.column>No.</flux:table.column>
             <flux:table.column>Contract</flux:table.column>
             <flux:table.column>Type</flux:table.column>
-            <flux:table.column>Contractor</flux:table.column>
-            <flux:table.column>Amount</flux:table.column>
             <flux:table.column>Status</flux:table.column>
-            <flux:table.column></flux:table.column>
+            <flux:table.column>Contract Start</flux:table.column>
+            <flux:table.column>Contract End</flux:table.column>
+            <flux:table.column>Days Remaining</flux:table.column>
+            <flux:table.column>Action</flux:table.column>
         </flux:table.columns>
 
         <flux:table.rows>
@@ -137,29 +155,85 @@ new class extends Component
 
                 <flux:table.row>
 
-                    <flux:table.cell>{{ $contract->contract_no }}</flux:table.cell>
                     <flux:table.cell>{{ $contract->contract_name }}</flux:table.cell>
-                    <flux:table.cell>{{ $contract->contract_type }}</flux:table.cell>
-                    <flux:table.cell>{{ $contract->contractor }}</flux:table.cell>
                     <flux:table.cell>
-                        ₱{{ number_format($contract->contract_amount,2) }}
-                    </flux:table.cell>
+                        @switch($contract->contract_type)
+                            @case('Employment Contract')
+                                <flux:badge variant="primary" color="amber">Employment Contract</flux:badge>
+                                @break
 
+                            @case('Temporary Lighting Contract')
+                                <flux:badge variant="primary" color="indigo">Temporary Lighting Contract</flux:badge>
+                                @break
+
+                            @case('Rental Contract')
+                                <flux:badge variant="primary" color="fuchsia">Rental Contract</flux:badge>
+                                @break
+
+                            @case('Infrastructure Contract')
+                                <flux:badge variant="primary" color="emerald">Infrastructure Contract</flux:badge>
+                                @break
+
+                            @case('Goods Contract')
+                                <flux:badge variant="primary" color="blue">Goods Contract</flux:badge>
+                                @break
+
+                            @case('Service and Consultancy Contract')
+                                <flux:badge variant="primary" color="teal">Service and Consultancy Contract</flux:badge>
+                                @break
+
+                            @case('Power Suppliers Contract (LONG TERM)')
+                                <flux:badge variant="primary" color="lime">Power Suppliers Contract (LONG TERM)</flux:badge>
+                                @break
+
+                            @case('Power Suppliers Contract (SHORT TERM)')
+                                <flux:badge variant="primary" color="zinc">Power Suppliers Contract (SHORT TERM)</flux:badge>
+                                @break
+
+                            @case('Transformer Rental Contract')
+                                <flux:badge variant="primary" color="red">Transformer Rental Contract</flux:badge>
+                                @break
+
+                            @default
+                                <flux:badge variant="primary" color="gray">
+                                    {{ $contract->contract_type }}
+                                </flux:badge>
+                        @endswitch
+                    </flux:table.cell>
                     <flux:table.cell>
                         <flux:badge color="{{ $contract->status == 'Active' ? 'green' : 'zinc' }}">
                             {{ $contract->status }}
                         </flux:badge>
                     </flux:table.cell>
-
+                    <flux:table.cell>{{ \Carbon\Carbon::parse($contract->start_date)->format('F d, Y') }}</flux:table.cell>
+                    <flux:table.cell>{{ \Carbon\Carbon::parse($contract->end_date)->format('F d, Y') }}</flux:table.cell>
                     <flux:table.cell>
-                        <flux:button
-                            size="sm"
-                            icon="eye"
-                            color="cyan">
-                            View
-                        </flux:button>
-                    </flux:table.cell>
+                        @php
+                            $today = \Carbon\Carbon::today();
+                            $endDate = \Carbon\Carbon::parse($contract->end_date);
+                            $daysRemaining = $today->diffInDays($endDate, false); // keeps negative values
+                        @endphp
 
+                        @if($daysRemaining < 0)
+                            <flux:badge color="red">Expired</flux:badge>
+                        @elseif($daysRemaining <= 20)
+                            <flux:badge color="amber">{{ $daysRemaining }} days</flux:badge>
+                        @else
+                            <flux:badge color="green">{{ $daysRemaining }} days</flux:badge>
+                            {{-- Or use color="emerald" if you prefer a mint green --}}
+                        @endif
+                    </flux:table.cell>
+                    <flux:table.cell>
+                        <a href="{{ route('contracts.view', $contract->id) }}">
+                            <flux:button
+                                class="cursor-pointer"
+                                size="sm"
+                                icon="eye"
+                                color="cyan">
+                                View
+                            </flux:button>
+                        </a>
+                    </flux:table.cell>
                 </flux:table.row>
 
             @empty
@@ -369,7 +443,7 @@ new class extends Component
                 <flux:input
                     label="Uploaded By"
                     wire:model="uploaded_by"
-                    placeholder="Employee Name"
+                    readonly
                 />
 
             </div>
