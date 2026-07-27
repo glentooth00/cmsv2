@@ -1,0 +1,250 @@
+# 📄 Contract Management System 2.0 (CMS 2.0)
+
+![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?style=for-the-badge&logo=laravel)
+![PHP](https://img.shields.io/badge/PHP-8.2+-777BB4?style=for-the-badge&logo=php)
+![Livewire](https://img.shields.io/badge/Livewire-4.x-FB70A9?style=for-the-badge)
+![MySQL](https://img.shields.io/badge/MySQL-8.x-4479A1?style=for-the-badge&logo=mysql)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+
+> A modern web-based Contract Management System built with Laravel. CMS 2.0 is a complete rewrite of the original Contract Management System, replacing the previous Vanilla PHP and JavaScript architecture with Laravel's modern MVC framework for improved scalability, security, and maintainability.
+
+---
+
+## 📖 About
+
+Contract Management System 2.0 (CMS 2.0) is designed to help organizations efficiently manage contracts, monitor expiration dates, organize supporting documents, and track contract status from creation to completion.
+
+This version is a **major upgrade** over the previous CMS, featuring:
+
+- Laravel Framework
+- Modern MVC Architecture
+- Better Security
+- Cleaner Codebase
+- Improved User Interface
+- Enhanced Performance
+- Easier Maintenance
+- More Scalable Structure
+
+---
+
+## 🚀 Features
+
+- 📄 Contract Management
+- 👥 User Management
+- 🏢 Department Management
+- 📁 Document Uploads
+- 🔍 Powerful Search & Filtering
+- 📊 Dashboard Overview
+- 📅 Contract Expiration Monitoring
+- 🔔 Status Tracking
+- 📂 Contract Type Management
+- 🔐 Authentication & Authorization
+- 📱 Responsive Design
+
+---
+
+## 🛠 Tech Stack
+
+### Backend
+
+- Laravel
+- PHP 8.2+
+- Livewire
+- Flux UI
+
+### Frontend
+
+- Blade
+- Tailwind CSS
+- Alpine.js
+
+### Database
+
+- MySQL
+
+---
+
+## 📂 Project Structure
+
+```
+app/
+bootstrap/
+config/
+database/
+public/
+resources/
+routes/
+storage/
+tests/
+```
+
+---
+
+## ⚙️ Installation
+
+### Clone Repository
+
+```bash
+git clone https://github.com/yourusername/cms2.git
+```
+
+```bash
+cd cms2
+```
+
+### Install Dependencies
+
+```bash
+composer install
+```
+
+```bash
+npm install
+```
+
+### Environment
+
+```bash
+cp .env.example .env
+```
+
+Generate Application Key
+
+```bash
+php artisan key:generate
+```
+
+Configure your database inside `.env`
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=cms2
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+### Run Migrations
+
+```bash
+php artisan migrate
+```
+
+(Optional)
+
+```bash
+php artisan db:seed
+```
+
+### Build Frontend
+
+```bash
+npm run dev
+```
+
+or
+
+```bash
+npm run build
+```
+
+### Run Application
+
+```bash
+php artisan serve
+```
+
+Visit
+
+```
+http://127.0.0.1:8000
+```
+
+---
+
+## 🔐 Default Login
+
+Create your own administrator account or seed the database if a seeder is available.
+
+---
+
+## 📷 Screenshots
+
+> Add screenshots here.
+
+```
+docs/
+    dashboard.png
+    contracts.png
+    users.png
+```
+
+---
+
+## 📈 Future Enhancements
+
+- Email Notifications
+- Expiration Reminder Emails
+- Contract Renewal Workflow
+- Audit Logs
+- Role-based Permissions
+- Reports & Analytics
+- Digital Signature Integration
+- AI-powered Contract Assistant
+- REST API
+- Mobile Support
+
+---
+
+## 🔄 Migration from CMS 1.0
+
+CMS 2.0 is a complete rebuild of the original Contract Management System.
+
+| CMS 1.0 | CMS 2.0 |
+|----------|----------|
+| Vanilla PHP | Laravel |
+| jQuery | Livewire + Alpine |
+| Manual Routing | Laravel Routing |
+| Procedural Structure | MVC Architecture |
+| Basic Authentication | Laravel Authentication |
+| Difficult Maintenance | Modular & Maintainable |
+| Limited Scalability | Enterprise Ready |
+
+---
+
+## 🤝 Contributing
+
+Contributions, feature requests, and pull requests are welcome.
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to your branch
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+## 👨‍💻 Author
+
+**Glen Donn Alpasan**
+
+Software Application Officer
+
+Bachelor of Science in Information Technology
+
+---
+
+## ⭐ Version
+
+**CMS 2.0**
+
+Current Release: **v2.0.0**
+
+Built with ❤️ using Laravel.
