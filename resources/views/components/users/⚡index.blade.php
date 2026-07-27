@@ -5,6 +5,7 @@ use Livewire\WithFileUploads;
 use App\Models\User;
 use Flux\Flux;
 use Livewire\WithPagination;
+use App\Models\ContractTypes;
 
 new class extends Component {
     
@@ -18,6 +19,14 @@ new class extends Component {
     public $username;
     public $password;
     public $user; // Property to hold the user data for viewing
+    public $contract_types = [];
+    public $availableContractTypes = [];
+    public $user_type = 'User';
+
+    public function mount()
+    {
+        $this->availableContractTypes = ContractTypes::orderBy('contract_type')->get();
+    }
 
     public function save()
     {
@@ -29,6 +38,8 @@ new class extends Component {
             'avatar' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
             'username' => 'required|string|max:255|unique:users,username',
             'password' => 'required|string|min:8',
+            'contract_types' => 'required|array|min:1',
+            'user_type' => 'required|in:Admin,User',
         ]);
 
         
@@ -39,6 +50,7 @@ new class extends Component {
             'avatar'     => $this->avatar,
             'username'   => $this->username,
             'password'   => $this->password,
+            'contract_types' => $this->contract_types,
         ];
 
 
@@ -55,7 +67,9 @@ new class extends Component {
             'middlename' => $this->middleName,
             'lastname' => $this->lastName,
             'username' => $this->username,
-            'password' => bcrypt($this->password),
+            'password' => Hash::make($this->password),
+            'user_type' => $this->user_type,
+            'contract_types' => $this->contract_types,
             'avatar' => $avatarPath,
         ]);
 
@@ -75,7 +89,7 @@ new class extends Component {
 
     public function render()
     {
-        $users = User::paginate(2);
+        $users = User::paginate(10);
 
         return view('components.users.⚡index',[
             'users' => $users
@@ -291,6 +305,71 @@ new class extends Component {
             </div>
         </div>
 
+        <flux:fieldset>
+
+    <flux:legend>User Type</flux:legend>
+
+    <flux:text class="mt-1 mb-4 text-sm text-zinc-500">
+        Select the user's access level.
+    </flux:text>
+
+    <flux:select
+        wire:model="user_type"
+        placeholder="Select user type">
+
+        <flux:select.option value="User">
+            User
+        </flux:select.option>
+
+        <flux:select.option value="Admin">
+            Administrator
+        </flux:select.option>
+
+    </flux:select>
+
+    @error('user_type')
+        <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+    @enderror
+
+        </flux:fieldset>
+
+        <flux:fieldset>
+
+            <flux:legend>Allowed Contract Types</flux:legend>
+
+            <flux:text class="mt-1 mb-4 text-sm text-zinc-500">
+                Select the contract types this user is allowed to create and manage.
+            </flux:text>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                @foreach($availableContractTypes as $type)
+
+                    <label class="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition">
+
+                        <input
+                            type="checkbox"
+                            wire:model="contract_types"
+                            value="{{ $type->id }}"
+                            class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
+                        >
+
+                        <span class="text-sm">
+                            {{ $type->contract_type }}
+                        </span>
+
+                    </label>
+
+                @endforeach
+
+            </div>
+
+            @error('contract_types')
+                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+            @enderror
+
+        </flux:fieldset>
+
         <div class="flex justify-end">
            <flux:button type="submit" variant="primary" class="cursor-pointer">Save</flux:button>
         </div>
@@ -298,9 +377,7 @@ new class extends Component {
     </div>
 </flux:modal>
 
-<flux:modal name="view-user">
-    ...
-</flux:modal>
+
 
 </div>
 
