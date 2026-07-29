@@ -26,6 +26,14 @@
                 'user' => $this->user
             ]);
         }
+
+        public function edit()
+        {
+            return $this->redirect(
+                "/users/{$this->user->id}/edit",
+                navigate: true
+            );
+        }
     };
     ?>
 
@@ -49,6 +57,24 @@
                     {{ $user->firstname }} {{ $user->lastname }}
                 </h1>
 
+                <div class="flex flex-wrap gap-2">
+
+                    <flux:badge color="green">
+                        Active
+                    </flux:badge>
+
+                    <flux:badge color="blue">
+                        {{ $user->is_admin ? 'Administrator' : 'User' }}
+                    </flux:badge>
+
+                    @if($user->department)
+                        <flux:badge color="purple" icon="building-office-2">
+                            {{ $user->departmentInfo?->department_name ?? 'Not Assigned' }}
+                        </flux:badge>
+                    @endif
+
+                </div>
+
                 <p class="text-sm text-zinc-500">
                     User ID #{{ str_pad($user->id, 5, '0', STR_PAD_LEFT) }}
                 </p>
@@ -71,7 +97,12 @@
 
         <div class="flex gap-2">
 
-            <flux:button icon="pencil-square" variant="primary">
+            <flux:button
+                icon="pencil-square"
+                variant="primary"
+                wire:click="edit"
+                route="{{ route('users.edit',[$user->id]) }}"
+            >
                 Edit Profile
             </flux:button>
 
