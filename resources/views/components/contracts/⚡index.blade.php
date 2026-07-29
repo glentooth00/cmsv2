@@ -22,10 +22,17 @@ new class extends Component
     public $uploader_dept;
     public $uploaded_by;
     public $contract_file;
+    public $types = [];
 
     public function mount()
     {
         $user = auth()->user();
+
+        $assignedTypes = $user->contract_types ?? [];
+
+        $this->types = ContractTypes::whereIn('id', $assignedTypes)
+            ->orderBy('contract_type')
+            ->get();
 
         $this->uploaded_by = trim(
             $user->firstname . ' ' .
@@ -86,12 +93,9 @@ new class extends Component
 
     public function render()
     {
-
-        $types = ContractTypes::get();
-    
         return view('components.contracts.⚡index', [
             'contracts' => Contracts::latest()->paginate(10),
-            'types' => $types
+            'types' => $this->types,
         ]);
     }
 

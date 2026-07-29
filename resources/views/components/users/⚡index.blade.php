@@ -6,6 +6,7 @@ use App\Models\User;
 use Flux\Flux;
 use Livewire\WithPagination;
 use App\Models\ContractTypes;
+use App\Models\Departments;
 
 new class extends Component {
     
@@ -22,6 +23,7 @@ new class extends Component {
     public $contract_types = [];
     public $availableContractTypes = [];
     public $user_type = 'User';
+    public $department;
 
     public function mount()
     {
@@ -40,6 +42,7 @@ new class extends Component {
             'password' => 'required|string|min:8',
             'contract_types' => 'required|array|min:1',
             'user_type' => 'required|in:Admin,User',
+            'department' => 'required|string',
         ]);
 
         
@@ -51,6 +54,7 @@ new class extends Component {
             'username'   => $this->username,
             'password'   => $this->password,
             'contract_types' => $this->contract_types,
+            'department' => $this->department
         ];
 
 
@@ -71,6 +75,7 @@ new class extends Component {
             'user_type' => $this->user_type,
             'contract_types' => $this->contract_types,
             'avatar' => $avatarPath,
+            'department' => $this->department
         ]);
 
         // Reset the form fields
@@ -90,9 +95,11 @@ new class extends Component {
     public function render()
     {
         $users = User::paginate(10);
+        $departments = Departments::get();
 
         return view('components.users.⚡index',[
-            'users' => $users
+            'users' => $users,
+            'departments' => $departments
         ]);
     }
 
@@ -140,7 +147,6 @@ new class extends Component {
 
 };
 ?>
-
 <div class="space-y-4">
     <div class="">
         <flux:heading size="xl">Users</flux:heading>
@@ -324,6 +330,25 @@ new class extends Component {
         <flux:select.option value="Admin">
             Administrator
         </flux:select.option>
+
+    </flux:select>
+
+
+    <flux:legend class="mt-4">User Department</flux:legend>
+
+    <flux:text class="mt-1 mb-4 text-sm text-zinc-500">
+        Select the user's Department.
+    </flux:text>
+
+    <flux:select
+        wire:model="department"
+        placeholder="Select Department">
+
+        @foreach ($departments as $department)
+            <flux:select.option value="{{ $department->id }}">
+                {{ $department->department_name }}
+            </flux:select.option>
+        @endforeach
 
     </flux:select>
 

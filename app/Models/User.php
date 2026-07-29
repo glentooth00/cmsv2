@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
-
+use App\Models\Departments;
 /**
  * @property int $id
  * @property string $name
@@ -47,6 +47,13 @@ class User extends Authenticatable implements PasskeyUser
             'password' => 'hashed',
             'contract_types' => 'array',
         ];
+    }
+
+// User.php
+
+    public function departmentInfo()
+    {
+        return $this->belongsTo(Departments::class, 'department');
     }
 
     /**
