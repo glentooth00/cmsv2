@@ -15,7 +15,6 @@
 <body class="min-h-screen bg-zinc-100 antialiased">
 
 <div class="grid min-h-screen lg:grid-cols-2">
-
     {{-- LEFT --}}
     <div class="flex items-center justify-center bg-white px-8">
 

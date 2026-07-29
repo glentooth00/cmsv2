@@ -147,6 +147,7 @@ new class extends Component {
 
 };
 ?>
+
 <div class="space-y-4">
     <div class="">
         <flux:heading size="xl">Users</flux:heading>
