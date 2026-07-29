@@ -1,59 +1,165 @@
-<x-layouts::auth :title="__('Log in')">
-    <div class="flex flex-col gap-6">
-        <x-auth-header :title="__('Log in to your account')" :description="__('Enter your email and password below to log in')" />
+<x-layouts::auth :title="__('Contract Management System')">
 
-        {{-- <!-- Session Status -->
-        <x-auth-session-status class="text-center" :status="session('status')" />
+<div class="min-h-screen grid lg:grid-cols-2">
 
-        <x-passkey-verify /> --}}
+    {{-- LEFT PANEL --}}
+    <div class="flex items-center justify-center bg-white dark:bg-zinc-900 px-10 py-12">
 
-        <form method="POST" action="{{ route('login.store') }}" class="flex flex-col gap-6">
-            @csrf
+        <div class="w-full max-w-md">
 
-            <!-- Email Address -->
-            <flux:input
-                name="username"
-                :label="__('Username')"
-                :value="old('username')"
-                type="text"
-                required
-                autofocus
-                autocomplete="username"
-                placeholder="username"
+            {{-- Logo --}}
+            <div class="mb-10 text-center">
+
+                <img
+                    src="{{ asset('images/logo.png') }}"
+                    alt="ILECO III"
+                    class="w-24 h-24 mx-auto mb-6"
+                >
+
+                <h1 class="text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">
+                    Contract Management System
+                </h1>
+
+                <p class="mt-3 text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Monitor contract expiration, manage lifecycle, and securely
+                    store documents from one centralized platform.
+                </p>
+
+            </div>
+
+            {{-- Session Status --}}
+            <x-auth-session-status
+                class="mb-6"
+                :status="session('status')"
             />
 
-            <!-- Password -->
-            <div class="relative">
+            <form method="POST"
+                  action="{{ route('login.store') }}"
+                  class="space-y-6">
+
+                @csrf
+
                 <flux:input
-                    name="password"
-                    :label="__('Password')"
-                    type="password"
+                    name="username"
+                    :label="__('Username')"
+                    :value="old('username')"
                     required
-                    autocomplete="current-password"
-                    :placeholder="__('Password')"
-                    viewable
+                    autofocus
+                    autocomplete="username"
+                    placeholder="Enter username"
                 />
 
-                @if (Route::has('password.request'))
-                    <flux:link class="absolute top-0 text-sm end-0" :href="route('password.request')" wire:navigate>
-                        {{ __('Forgot your password?') }}
-                    </flux:link>
-                @endif
-            </div>
+                <div class="relative">
 
-            <!-- Remember Me -->
-            <flux:checkbox name="remember" :label="__('Remember me')" :checked="old('remember')" />
+                    <flux:input
+                        name="password"
+                        type="password"
+                        :label="__('Password')"
+                        required
+                        autocomplete="current-password"
+                        placeholder="Enter password"
+                        viewable
+                    />
 
-            <div class="flex items-center justify-end">
-                <flux:button variant="primary" type="submit" class="w-full" data-test="login-button">
-                    {{ __('Log in') }}
+                    @if (Route::has('password.request'))
+
+                        <flux:link
+                            class="absolute right-0 top-0 text-sm"
+                            :href="route('password.request')"
+                            wire:navigate
+                        >
+                            Forgot Password?
+                        </flux:link>
+
+                    @endif
+
+                </div>
+
+                <div class="flex items-center justify-between">
+
+                    <flux:checkbox
+                        name="remember"
+                        :checked="old('remember')"
+                        label="Remember me"
+                    />
+
+                </div>
+
+                <flux:button
+                    type="submit"
+                    variant="primary"
+                    class="w-full h-12"
+                    icon:trailing="arrow-right"
+                >
+                    Sign In
                 </flux:button>
-            </div>
-        </form>
 
-        <div class="space-x-1 text-sm text-center rtl:space-x-reverse text-zinc-600 dark:text-zinc-400">
-            <span>{{ __('Don\'t have an account?') }}</span>
-            <flux:link :href="route('register')" wire:navigate>{{ __('Sign up') }}</flux:link>
+            </form>
+
         </div>
+
     </div>
+
+    {{-- RIGHT PANEL --}}
+    <div class="hidden lg:block relative overflow-hidden">
+
+<img
+    src="{{ asset('images/rightcolumn.jpg') }}"
+    class="absolute inset-0 h-full w-full object-cover"
+/>
+
+<div class="absolute inset-0 bg-black/30"></div>
+
+<div class="absolute inset-0 bg-[#073964]/70"></div>
+
+<div class="relative flex h-full items-center justify-center px-16">
+
+    <div class="max-w-xl text-left text-white">
+
+        <h2 class="text-7xl font-black leading-none tracking-tight mb-6">
+            Monitor. Track. Renew.
+        </h2>
+
+        <p class="max-w-lg text-lg leading-8 text-blue-100">
+            A centralized platform for contract lifecycle management,
+            expiration monitoring, secure document storage, and department-based access.
+        </p>
+
+        <div class="mt-10 space-y-4 text-lg">
+
+            <div class="flex items-center gap-3">
+                <span class="text-green-300">✓</span>
+                Contract Expiration Alerts
+            </div>
+
+            <div class="flex items-center gap-3">
+                <span class="text-green-300">✓</span>
+                Department-Based Access
+            </div>
+
+            <div class="flex items-center gap-3">
+                <span class="text-green-300">✓</span>
+                Contract Lifecycle Tracking
+            </div>
+
+            <div class="flex items-center gap-3">
+                <span class="text-green-300">✓</span>
+                Secure Digital Repository
+            </div>
+
+            <div class="flex items-center gap-3">
+                <span class="text-green-300">✓</span>
+                Reports & Analytics
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+    </div>
+
+</div>
+
 </x-layouts::auth>

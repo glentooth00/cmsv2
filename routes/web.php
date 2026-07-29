@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Flux\Flux;
 use App\Livewire\Contracts\ViewContract;
 
-Route::view('/', 'welcome')->name('home');
+Route::view('/', 'layouts.auth')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
