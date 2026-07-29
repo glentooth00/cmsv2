@@ -354,29 +354,46 @@ new class extends Component
 
             </div>
 
-            <div class="flex-1 min-w-0">
+<div class="flex-1 min-w-0">
 
-                @php
-                    $today = now()->startOfDay();
-                    $expiry = \Carbon\Carbon::parse($contract->end_date)->startOfDay();
+    @php
+        $today = now()->startOfDay();
+        $expiry = \Carbon\Carbon::parse($contract->end_date)->startOfDay();
 
-                    if ($expiry->isPast()) {
-                        $remaining = 'Expired';
-                    } elseif ($expiry->isToday()) {
-                        $remaining = 'Expires Today';
-                    } else {
-                        $remaining = $today->diffInDays($expiry) . ' days remaining';
-                    }
-                @endphp
+        if ($expiry->isPast()) {
+            $remaining = 'Expired';
 
-                <flux:input
-                    label="Remaining Days"
-                    icon="clock"
-                    :value="$remaining"
-                    disabled
-                />
+            if ($contract->status !== 'Expired') {
+                $contract->update([
+                    'status' => 'Expired'
+                ]);
+            }
 
-            </div>
+        } elseif ($expiry->isToday()) {
+            $remaining = 'Expires Today';
+
+        } else {
+            $daysRemaining = $today->diffInDays($expiry);
+            $remaining = $daysRemaining . ' days remaining';
+
+            if ($daysRemaining <= 0 && $contract->status !== 'Expired') {
+                $contract->update([
+                    'status' => 'Expired'
+                ]);
+
+                $remaining = 'Expired';
+            }
+        }
+    @endphp
+
+    <flux:input
+        label="Remaining Days"
+        icon="clock"
+        :value="$remaining"
+        disabled
+    />
+
+</div>
 
         </div>
 
