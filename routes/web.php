@@ -11,6 +11,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::livewire('/users', 'users.index')->name('users.index');
     Route::livewire('/users/{user}', 'users.view')->name('users.show');
+    Route::livewire('/users/{user}/edit', 'users.edit')->name('users.edit');
+
     Route::livewire('/contract-types', 'contract-types.index')->name('contractTypes.index');
 
     Route::livewire('/contracts', 'contracts.index')->name('contracts.index');
@@ -18,6 +20,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     Route::livewire('/departments', 'departments.index')->name('departments.index');
+    
 
 });
 
