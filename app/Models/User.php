@@ -56,6 +56,11 @@ class User extends Authenticatable implements PasskeyUser
         return $this->belongsTo(Departments::class, 'department');
     }
 
+    public function department()
+    {
+        return $this->belongsTo(Departments::class, 'department', 'id');
+    }
+
     /**
      * Get the user's initials
      */
