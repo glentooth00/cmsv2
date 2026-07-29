@@ -20,11 +20,19 @@
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
-                 <flux:sidebar.group :heading="__('')" class="grid">
-                    <flux:sidebar.item icon="rectangle-group" class="cursor-pointer" :href="route('contractTypes.index')" :current="request()->routeIs('contractTypes.index')" wire:navigate>
-                        {{ __('Contract Type') }} 
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
+
+                
+                
+                @if (auth()->user()->user_type == 'Admin')
+                    
+                    <flux:sidebar.group :heading="__('')" class="grid">
+                        <flux:sidebar.item icon="rectangle-group" class="cursor-pointer" :href="route('contractTypes.index')" :current="request()->routeIs('contractTypes.index')" wire:navigate>
+                            {{ __('Contract Type') }} 
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+
+                @endif
+
                 <flux:sidebar.group expandable :expanded="false" :heading="__('Contracts')" class="grid">
                     <flux:sidebar.item icon="document" class="cursor-pointer" :href="route('contracts.index')" :current="request()->routeIs('contract.index')" wire:navigate>
                         {{ __('Active Contracts') }}
@@ -38,16 +46,23 @@
                         {{ __('Archived Contracts') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
-                 <flux:sidebar.group expandable :expanded="false" :heading="__('User Management')" class="grid">
-                    <flux:sidebar.item icon="users" class="cursor-pointer" :href="route('users.index')" :current="request()->routeIs('users.index')" wire:navigate>
-                        {{ __('Users') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
-                 <flux:sidebar.group :heading="__('')" class="grid">
-                    <flux:sidebar.item icon="building-library" :href="route('departments.index')" class="cursor-pointer" :current="request()->routeIs('department.index')" wire:navigate>
-                        {{ __('Department') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
+                
+                @if (auth()->user()->user_type == 'Admin')
+                    
+                    <flux:sidebar.group expandable :expanded="false" :heading="__('User Management')" class="grid">
+                        <flux:sidebar.item icon="users" class="cursor-pointer" :href="route('users.index')" :current="request()->routeIs('users.index')" wire:navigate>
+                            {{ __('Users') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+
+                    <flux:sidebar.group :heading="__('')" class="grid">
+                        <flux:sidebar.item icon="building-library" :href="route('departments.index')" class="cursor-pointer" :current="request()->routeIs('department.index')" wire:navigate>
+                            {{ __('Department') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+
+                @endif
+
             </flux:sidebar.nav>
 
             <flux:spacer />
@@ -86,9 +101,14 @@
                                     :initials="auth()->user()->initials()"
                                 />
 
-                                <div class="grid flex-1 text-start text-sm leading-tight">
-                                    <flux:heading class="truncate">{{ auth()->user()->firstname }}</flux:heading>
-                                    <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
+                            <div class="grid flex-1 text-start text-sm leading-tight">
+                                    <flux:heading class="truncate">
+                                        {{ trim(auth()->user()->firstname . ' ' . auth()->user()->middlename . ' ' . auth()->user()->lastname) }}
+                                    </flux:heading>
+
+                                    <flux:text class="truncate">
+                                        {{ auth()->user()->department->department_name ?? 'No Department' }}
+                                    </flux:text>
                                 </div>
                             </div>
                         </div>
