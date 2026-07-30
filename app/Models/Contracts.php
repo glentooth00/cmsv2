@@ -8,4 +8,9 @@ use Livewire\WithFileUploads;
 class Contracts extends Model
 {
     protected $guarded = [];
+
+    public function departmentInfo()
+    {
+        return $this->belongsTo(Departments::class, 'department_assigned');
+    }
 }

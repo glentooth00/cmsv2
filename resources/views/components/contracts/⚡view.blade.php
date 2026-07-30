@@ -2,9 +2,12 @@
 
 use App\Models\Contracts;
 use Livewire\Component;
+use Flux\Flux;
+use Livewire\WithFileUploads;
 
 new class extends Component
 {
+    use WithFileUploads;
     public Contracts $contract;
 
     public Contracts $originalContract;
@@ -19,6 +22,17 @@ new class extends Component
     public $uploaded_by;
     public $showRenew = false;
     public $showEnd = false;
+    public $renew_contract_file;
+    public $renew_start_date;
+    public $renew_end_date;
+    public $renew_contract_name;
+    public $renew_contract_type;
+    public $renew_department;
+    public $renew_uploaded_by;
+    public $emp_position;
+    public $department_assigned;
+    public $contractHistory = [];
+    
 
     protected array $thresholds = [
     'Employment Contract' => [
@@ -67,10 +81,15 @@ new class extends Component
     public function mount(Contracts $contract)
     {
         $this->contract = $contract;
+        $this->contractHistory = Contracts::where('contract_name', $contract->contract_name)
+        ->orderByDesc('start_date')
+        ->get();
+        $this->loadContractHistory();
         $this->originalContract = clone $contract;
-
+        $this->emp_position = $contract->emp_position;
         $this->contract_name = $contract->contract_name;
         $this->contract_type = $contract->contract_type;
+        $this->department_assigned = $this->contract->departmentInfo?->department_name;
 
         $this->start_date = $contract->start_date
             ? \Carbon\Carbon::parse($contract->start_date)->format('Y-m-d')
@@ -110,6 +129,12 @@ new class extends Component
         }
     }
 
+    public function loadContractHistory()
+    {
+        $this->contractHistory = Contracts::where('contract_name', $this->contract->contract_name)
+            ->orderByDesc('start_date')
+            ->get();
+    }
 
     public function toggleEdit()
     {
@@ -169,6 +194,71 @@ new class extends Component
         $this->end_date = \Carbon\Carbon::parse($this->contract->end_date)->format('Y-m-d');
 
         $this->editing = false;
+    }
+
+    protected function renewRules()
+    {
+        return [
+            'renew_contract_file' => 'required|file|mimes:pdf|max:10240',
+            'renew_start_date' => 'required|date',
+            'renew_end_date' => 'required|date|after:renew_start_date',
+        ];
+    }
+
+    public function renewContract()
+    {
+        $this->validate($this->renewRules());
+
+        $path = $this->renew_contract_file->store(
+            'contracts',
+            'public'
+        );
+
+        // Optional: mark current contract as renewed
+        $this->contract->update([
+            'status' => 'Renewed',
+        ]);
+
+        Contracts::create([
+            'uploaded_by'     => $this->contract->uploaded_by,
+            'contract_name'   => $this->contract->contract_name,
+            'contract_type'   => $this->contract->contract_type,
+            'uploader_dept'   => $this->contract->uploader_dept,
+            'emp_position'    => $this->contract->emp_position,
+            'start_date'      => $this->renew_start_date,
+            'end_date'        => $this->renew_end_date,
+            'contract_file'   => $path,
+            'status'          => 'Active',
+            'department_assigned' => $this->contract->department_assigned
+        ]);
+
+        $this->loadContractHistory();
+
+        $this->reset([
+            'renew_contract_file',
+            'renew_start_date',
+            'renew_end_date',
+        ]);
+
+        Flux::modal('renew-contract')->close();
+
+        Flux::toast(
+            heading: 'Contract Renewed',
+            text: 'A new employment contract has been uploaded successfully.',
+            variant: 'success'
+        );
+
+        $this->redirect(request()->header('Referer'));
+    }
+
+    public function openRenewModal()
+    {
+        $this->renew_contract_name = $this->contract->contract_name;
+        $this->renew_contract_type = $this->contract->contract_type;
+        $this->renew_department = $this->contract->uploader_dept;
+        $this->renew_uploaded_by = auth()->user()->firstname . ' ' . auth()->user()->lastname;
+
+        Flux::modal('renew-contract')->show();
     }
 };
 ?>
@@ -243,7 +333,7 @@ new class extends Component
                 <flux:button
                     color="amber"
                     icon="arrow-path"
-                    wire:click="renewContract">
+                    wire:click="openRenewModal" >
                     Renew Contract
                 </flux:button>
             @endif
@@ -302,6 +392,24 @@ new class extends Component
                 />
             </div>
 
+            @if (!empty($emp_position))
+                <div class="flex-1 min-w-0">
+                    <flux:input
+                        label="Position"
+                        wire:model="emp_position"
+                        :disabled="!$editing"
+                    />
+                </div>
+            @endif
+
+            <div class="flex-1 min-w-0">
+                <flux:input
+                    label="Department Assigned"
+                    wire:model="department_assigned"
+                    :disabled="!$editing"
+                />
+            </div>
+
         </div>
 
         <div class="flex flex-wrap gap-4">
@@ -354,46 +462,46 @@ new class extends Component
 
             </div>
 
-<div class="flex-1 min-w-0">
+        <div class="flex-1 min-w-0">
 
-    @php
-        $today = now()->startOfDay();
-        $expiry = \Carbon\Carbon::parse($contract->end_date)->startOfDay();
+            @php
+                $today = now()->startOfDay();
+                $expiry = \Carbon\Carbon::parse($contract->end_date)->startOfDay();
 
-        if ($expiry->isPast()) {
-            $remaining = 'Expired';
+                if ($expiry->isPast()) {
+                    $remaining = 'Expired';
 
-            if ($contract->status !== 'Expired') {
-                $contract->update([
-                    'status' => 'Expired'
-                ]);
-            }
+                    if ($contract->status !== 'Expired') {
+                        $contract->update([
+                            'status' => 'Expired'
+                        ]);
+                    }
 
-        } elseif ($expiry->isToday()) {
-            $remaining = 'Expires Today';
+                } elseif ($expiry->isToday()) {
+                    $remaining = 'Expires Today';
 
-        } else {
-            $daysRemaining = $today->diffInDays($expiry);
-            $remaining = $daysRemaining . ' days remaining';
+                } else {
+                    $daysRemaining = $today->diffInDays($expiry);
+                    $remaining = $daysRemaining . ' days remaining';
 
-            if ($daysRemaining <= 0 && $contract->status !== 'Expired') {
-                $contract->update([
-                    'status' => 'Expired'
-                ]);
+                    if ($daysRemaining <= 0 && $contract->status !== 'Expired') {
+                        $contract->update([
+                            'status' => 'Expired'
+                        ]);
 
-                $remaining = 'Expired';
-            }
-        }
-    @endphp
+                        $remaining = 'Expired';
+                    }
+                }
+            @endphp
 
-    <flux:input
-        label="Remaining Days"
-        icon="clock"
-        :value="$remaining"
-        disabled
-    />
+            <flux:input
+                label="Remaining Days"
+                icon="clock"
+                :value="$remaining"
+                disabled
+            />
 
-</div>
+        </div>
 
         </div>
 
@@ -453,22 +561,48 @@ new class extends Component
 
                 <tbody>
 
-                    <tr class="border-b font-medium">
-                        <td class="px-4 py-3">{{ $contract->contract_name }}</td>
-                        <td class="px-4 py-3">{{ $contract->contract_type }}</td>
-                        <td class="px-4 py-3">
-                            {{ \Carbon\Carbon::parse($contract->start_date)->format('F d, Y') }}
-                        </td>
-                        <td class="px-4 py-3">
-                            {{ \Carbon\Carbon::parse($contract->end_date)->format('F d, Y') }}
-                        </td>
-                        <td class="px-4 py-3">
-                            <flux:badge color="{{ $contract->status === 'Active' ? 'green' : 'red' }}">
-                                {{ $contract->status }}
-                            </flux:badge>
-                        </td>
-                        <td class="px-4 py-3">{{ $contract->uploaded_by }}</td>
-                    </tr>
+                    @forelse($contractHistory as $history)
+
+                        <tr class="border-b">
+
+                            <td class="px-4 py-3">
+                                {{ $history->contract_name }}
+                            </td>
+
+                            <td class="px-4 py-3">
+                                {{ $history->contract_type }}
+                            </td>
+
+                            <td class="px-4 py-3">
+                                {{ \Carbon\Carbon::parse($history->start_date)->format('F d, Y') }}
+                            </td>
+
+                            <td class="px-4 py-3">
+                                {{ \Carbon\Carbon::parse($history->end_date)->format('F d, Y') }}
+                            </td>
+
+                            <td class="px-4 py-3">
+                                <flux:badge
+                                    color="{{ $history->status === 'Active' ? 'green' : ($history->status === 'Renewed' ? 'amber' : 'red') }}">
+                                    {{ $history->status }}
+                                </flux:badge>
+                            </td>
+
+                            <td class="px-4 py-3">
+                                {{ $history->uploaded_by }}
+                            </td>
+
+                        </tr>
+
+                    @empty
+
+                        <tr>
+                            <td colspan="6" class="px-4 py-8 text-center text-zinc-500">
+                                No contract history found.
+                            </td>
+                        </tr>
+
+                    @endforelse
 
                 </tbody>
 
@@ -481,4 +615,79 @@ new class extends Component
 
     </div>
 
+    <!---- RENEW MODAL ----->
+    <flux:modal
+        name="renew-contract"
+        class="w-full max-w-2xl">
+
+        <div class="space-y-6">
+
+            <div>
+                <h2 class="text-xl font-semibold">
+                    Renew Employment Contract
+                </h2>
+
+                <p class="text-sm text-zinc-500 mt-1">
+                    Upload the employee's new signed employment contract and specify the new contract period.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <input type="hidden" wire:model="renew_contract_name">
+                <input type="hidden" wire:model="renew_contract_type">
+                <input type="hidden" wire:model="renew_department">
+                <input type="hidden" wire:model="renew_uploaded_by">
+                <input type="hidden" wire:model="emp_position" >
+                <input type="hidden" wire:model="department_assigned">
+
+            </div>
+
+            <flux:separator />
+
+            <flux:input
+                type="file"
+                label="New Employment Contract (PDF)"
+                wire:model="renew_contract_file"
+                accept=".pdf"
+            />
+
+            <div class="grid grid-cols-2 gap-4">
+
+                <flux:input
+                    type="date"
+                    label="Contract Start Date"
+                    wire:model="renew_start_date"
+                />
+
+                <flux:input
+                    type="date"
+                    label="Contract End Date"
+                    wire:model="renew_end_date"
+                />
+
+            </div>
+
+            <div class="flex justify-end gap-2">
+
+                <flux:modal.close>
+                    <flux:button variant="ghost">
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+
+                <flux:button
+                    color="amber"
+                    icon="arrow-path"
+                    wire:click="renewContract">
+                    Save Renewal
+                </flux:button>
+
+            </div>
+
+        </div>
+
+    </flux:modal>
+
 </div>
+
