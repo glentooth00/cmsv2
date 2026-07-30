@@ -260,6 +260,21 @@ new class extends Component
 
         Flux::modal('renew-contract')->show();
     }
+
+    public function archiveContract()
+    {
+        $this->contract->update([
+            'status' => 'Archived',
+        ]);
+
+        Flux::toast(
+            heading: 'Contract Archived',
+            text: 'The contract has been archived successfully.',
+            variant: 'success'
+        );
+
+        $this->redirect(route('contracts.index'));
+    }
 };
 ?>
 <!-- Header -->
@@ -286,7 +301,13 @@ new class extends Component
 
                     <flux:badge
                         size="sm"
-                        color="{{ $contract->status == 'Active' ? 'green' : 'zinc' }}">
+                        color="{{ match($contract->status) {
+                            'Active' => 'green',
+                            'Expired' => 'red',
+                            'Archived' => 'violet',
+                            'Renewed' => 'amber',
+                            default => 'zinc',
+                        } }}">
 
                         {{ $contract->status }}
 
@@ -307,58 +328,83 @@ new class extends Component
         @if($editing)
 
             <flux:button
+                variant="primary"
                 color="green"
                 icon="check"
-                wire:click="save">
+                wire:click="save"
+                class="cursor-pointer">
                 Save
             </flux:button>
 
             <flux:button
+                variant="primary"
+                color="zinc"
                 icon="x-mark"
-                variant="ghost"
-                wire:click="cancel">
+                wire:click="cancel"
+                class="cursor-pointer">
                 Cancel
             </flux:button>
 
         @else
 
             <flux:button
+                variant="primary"
+                color="blue"
                 icon="pencil"
-                variant="ghost"
-                wire:click="toggleEdit">
+                wire:click="toggleEdit"
+                class="cursor-pointer">
                 Edit
             </flux:button>
 
             @if($showRenew)
                 <flux:button
+                    variant="primary"
                     color="amber"
                     icon="arrow-path"
-                    wire:click="openRenewModal" >
+                    wire:click="openRenewModal"
+                    class="cursor-pointer">
                     Renew Contract
                 </flux:button>
             @endif
 
             @if($showEnd)
                 <flux:button
+                    variant="primary"
                     color="red"
                     icon="x-circle"
-                    wire:click="endContract">
+                    wire:click="endContract"
+                    class="cursor-pointer">
                     End Contract
                 </flux:button>
             @endif
+
+            <flux:button
+                variant="primary"
+                color="violet"
+                icon="archive-box"
+                wire:click="archiveContract"
+                class="cursor-pointer">
+                Archive
+            </flux:button>
 
         @endif
 
         <a href="{{ Storage::url($contract->contract_file) }}" target="_blank">
             <flux:button
+                variant="primary"
                 color="cyan"
-                icon="eye">
+                icon="eye"
+                class="cursor-pointer">
                 Preview
             </flux:button>
         </a>
 
         <a href="{{ Storage::url($contract->contract_file) }}" download>
-            <flux:button icon="arrow-down-tray">
+            <flux:button
+                variant="primary"
+                color="sky"
+                icon="arrow-down-tray"
+                class="cursor-pointer">
                 Download
             </flux:button>
         </a>
@@ -400,15 +446,15 @@ new class extends Component
                         :disabled="!$editing"
                     />
                 </div>
-            @endif
 
-            <div class="flex-1 min-w-0">
-                <flux:input
-                    label="Department Assigned"
-                    wire:model="department_assigned"
-                    :disabled="!$editing"
-                />
-            </div>
+                <div class="flex-1 min-w-0">
+                    <flux:input
+                        label="Department Assigned"
+                        wire:model="department_assigned"
+                        :disabled="!$editing"
+                    />
+                </div>
+            @endif
 
         </div>
 
