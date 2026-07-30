@@ -47,8 +47,8 @@ new class extends Component {
             'uploader_dept' => 'required|string',
             'uploaded_by' => 'required|string',
             'contract_file' => 'required|file|mimes:pdf|max:10240', // 10MB
-            'position' => 'nullable|string',
-            'department_assigned' => 'nullable|string',
+            'position' => 'required|string',
+            'department_assigned' => 'required|string',
         ]);
 
         // Store PDF
@@ -85,7 +85,7 @@ new class extends Component {
         $departments = Departments::all();
 
         $contracts = Contracts::where('uploader_dept', $dept)
-            ->where('status', 'Active')
+            ->where('status', 'Archived')
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('contract_name', 'like', '%' . $this->search . '%')

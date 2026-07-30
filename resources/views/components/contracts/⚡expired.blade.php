@@ -82,10 +82,23 @@ new class extends Component {
     {
         $dept = auth()->user()->departmentInfo?->department_name ?? '';
 
-        $departments = Departments::get();
+        $departments = Departments::all();
+
+        $contracts = Contracts::where('uploader_dept', $dept)
+            ->where('status', 'Expired')
+            ->when($this->search, function ($query) {
+                $query->where(function ($q) {
+                    $q->where('contract_name', 'like', '%' . $this->search . '%')
+                    ->orWhere('contract_type', 'like', '%' . $this->search . '%')
+                    ->orWhere('uploaded_by', 'like', '%' . $this->search . '%')
+                    ->orWhere('status', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->latest()
+            ->paginate(10);
 
         return view('components.contracts.⚡index', [
-            'contracts' => Contracts::latest()->where('uploader_dept', $dept)->where('status','Active')->paginate(10),
+            'contracts' => $contracts,
             'types' => $this->types,
             'departments' => $departments,
         ]);
@@ -100,6 +113,11 @@ new class extends Component {
         $this->uploader_dept = $user->departmentInfo?->department_name ?? 'No Department';
 
         Flux::modal('create-contract')->show();
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
     }
 };
 ?>
