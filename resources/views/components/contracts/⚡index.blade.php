@@ -30,6 +30,11 @@ new class extends Component {
     public $supplier;
     public $proc_mode;
     public $user_id;
+    public $tc_no;
+    public $address;
+    public $second_party;
+    public $account_number;
+    public $filterType = '';
 
     public function mount()
     {
@@ -62,7 +67,11 @@ new class extends Component {
             'customer_name' => 'nullable|string',
             'proc_mode' => 'nullable|string',
             'supplier' => 'nullable|string',
-            'user_id' => 'required|integer'
+            'user_id' => 'required|integer',
+            'tc_no' => 'nullable',
+            'account_number' => 'nullable|string',
+            'address' => 'nullable',
+            'second_party' => 'nullable'
         ]);
 
         // Store PDF
@@ -88,7 +97,11 @@ new class extends Component {
             'proc_mode' => $this->proc_mode,
             'supplier' => $this->supplier,
             'price' => $price,
-            'uploader_id' => $this->user_id
+            'uploader_id' => $this->user_id,
+            'tc_no' => $this->tc_no,
+            'account_number' => $this->account_number,
+            'address' => $this->address,
+            'second_party' => $this->second_party
         ]);
 
         $this->reset([
@@ -152,6 +165,9 @@ new class extends Component {
                         ->orWhere('status', 'like', "%{$this->search}%");
                 });
             })
+            ->when($this->filterType, function ($query) {
+                $query->where('contract_type', $this->filterType);
+            })
             ->latest()
             ->paginate(10);
 
@@ -200,19 +216,48 @@ new class extends Component {
         <flux:separator />
     </div>
 
-    <div class="flex items-center justify-between">
+<div class="flex items-center justify-between">
 
-        <flux:field class="w-64">
-            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search contract..."
-                size="sm" />
-        </flux:field>
+<div class="flex items-center gap-3">
 
-        <flux:button size="sm" variant="primary" color="sky" class="cursor-pointer"
-            wire:click="openCreateContract">
-            Add Contract
-        </flux:button>
+    <flux:field class="w-72">
+        <flux:input
+            wire:model.live.debounce.300ms="search"
+            icon="magnifying-glass"
+            placeholder="Search contract..."
+            size="sm"
+        />
+    </flux:field>
 
-    </div>
+    <flux:field class="w-72">
+        <flux:select
+            wire:model.live="filterType"
+            size="sm">
+
+            <option value="">All Contract Types</option>
+
+            @foreach ($types as $type)
+                <option value="{{ $type->contract_type }}">
+                    {{ $type->contract_type }}
+                </option>
+            @endforeach
+
+        </flux:select>
+    </flux:field>
+
+</div>
+
+    <flux:button
+        size="sm"
+        variant="primary"
+        color="sky"
+        wire:click="openCreateContract">
+
+        Add Contract
+
+    </flux:button>
+
+</div>
 
     <flux:table :paginate="$contracts" sticky class="table-stripped">
 
@@ -463,6 +508,17 @@ new class extends Component {
 
                         @endif
 
+
+                        @if ($contract_type === 'Temporary Lighting Contract')
+
+                            <flux:input label="Customer Name" wire:model="customer_name"
+                                placeholder="customer name" />
+                                
+                            <flux:input label="TC no" wire:model="tc_no"
+                                placeholder="tc no." />
+
+                        @endif
+
                         <flux:select label="Status" wire:model="status">
                             <option value="">Select Status</option>
                             <option>Active</option>
@@ -471,9 +527,24 @@ new class extends Component {
                             <option>Cancelled</option>
                         </flux:select>
 
+                        @if ($contract_type === 'Temporary Lighting Contract')
+                            <flux:textarea label="Address" wire:model="address"
+                                placeholder="address" />
+
+                        @endif
+
                     </div>
 
                     <div class="space-y-5">
+
+                        @if ($contract_type === 'Temporary Lighting Contract')
+                            <flux:input label="Account Number" wire:model="account_number"
+                                placeholder="Account #" />
+
+                            <flux:input label="Party of Second Part" wire:model="second_party"
+                                placeholder="name of second party" />
+
+                        @endif
 
                         @if ($contract_type === 'Goods Contract')
 
@@ -489,13 +560,13 @@ new class extends Component {
 
                         @endif
 
-                        <flux:input type="date" label="Start Date" wire:model="start_date" />
+                        <flux:input type="date" label="Actual Date Started" wire:model="start_date" />
 
-                        <flux:input type="date" label="End Date" wire:model="end_date" />
+                        <flux:input type="date" label="Expiration End" wire:model="end_date" />
 
-                        <flux:input label="Uploader Department" wire:model="uploader_dept" readonly />
+                        <flux:input type="hidden" wire:model="uploader_dept" readonly />
 
-                        <flux:input label="Uploaded By" wire:model="uploaded_by" readonly />
+                        <flux:input type="hidden" wire:model="uploaded_by" readonly />
 
                         <flux:input
                             label=""
@@ -538,4 +609,4 @@ new class extends Component {
             </div>
         </flux:modal>
 
-    </div>
+</div>
