@@ -61,6 +61,12 @@
                         </flux:sidebar.item>
                     </flux:sidebar.group>
 
+                    <flux:sidebar.group :heading="__('')" class="grid">
+                        <flux:sidebar.item icon="clipboard-document-list" :href="route('procurement.index')" class="cursor-pointer" :current="request()->routeIs('procurement.index')" wire:navigate>
+                            {{ __('Procurement Mode') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+
                 @endif
 
             </flux:sidebar.nav>
