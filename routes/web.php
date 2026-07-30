@@ -18,6 +18,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('/contracts', 'contracts.index')->name('contracts.index');
     Route::livewire('/contracts/{contract}','contracts.view')->name('contracts.view');
     Route::livewire('/expired', 'contracts.expired')->name('contracts.expired');
+    Route::livewire('/archived', 'contracts.archived')->name('contracts.archived');
 
     
 
