@@ -20,6 +20,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('/expired', 'contracts.expired')->name('contracts.expired');
     Route::livewire('/archived', 'contracts.archived')->name('contracts.archived');
 
+    //proc mode
+    Route::livewire('/procurement','procurement.index')->name('procurement.index');
+
     
 
 

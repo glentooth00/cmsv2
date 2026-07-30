@@ -13,4 +13,9 @@ class Contracts extends Model
     {
         return $this->belongsTo(Departments::class, 'department_assigned');
     }
+
+    public function procInfo()
+    {
+        return $this->belongsTo(Procurement::class, 'proc_mode');
+    }
 }
