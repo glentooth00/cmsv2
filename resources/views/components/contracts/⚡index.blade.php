@@ -29,6 +29,7 @@ new class extends Component {
     public $customer_name;
     public $supplier;
     public $proc_mode;
+    public $user_id;
 
     public function mount()
     {
@@ -39,6 +40,9 @@ new class extends Component {
         $this->types = ContractTypes::whereIn('id', $assignedTypes)->orderBy('contract_type')->get();
 
         $this->uploaded_by = trim($user->firstname . ' ' . $user->middlename . ' ' . $user->lastname);
+
+        $this->user_id = $user->id;
+
     }
 
     public function save()
@@ -58,6 +62,7 @@ new class extends Component {
             'customer_name' => 'nullable|string',
             'proc_mode' => 'nullable|string',
             'supplier' => 'nullable|string',
+            'user_id' => 'required|integer'
         ]);
 
         // Store PDF
@@ -83,6 +88,7 @@ new class extends Component {
             'proc_mode' => $this->proc_mode,
             'supplier' => $this->supplier,
             'price' => $price,
+            'uploader_id' => $this->user_id
         ]);
 
         $this->reset([
@@ -99,6 +105,7 @@ new class extends Component {
             'proc_mode',
             'supplier',
             'price',
+            'user_id'
         ]);
 
         $this->status = 'Active';
@@ -115,19 +122,34 @@ new class extends Component {
     public function render()
     {
         $dept = auth()->user()->departmentInfo?->department_name ?? '';
+        $user_id = auth()->user()->id;
+        $user_type = auth()->user()->user_type;
 
         $procModes = Procurement::all();
 
         $departments = Departments::all();
 
-        $contracts = Contracts::where('uploader_dept', $dept)
-            ->where('status', 'Active')
+        $user = auth()->user();
+
+        if ($user->user_type === 'Admin') {
+
+            $contracts = Contracts::query();
+
+        } else {
+
+            $contracts = Contracts::where('uploader_dept', $dept)
+                ->where('status', 'Active')
+                ->where('uploader_id', $user->id);
+
+        }
+
+        $contracts = $contracts
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('contract_name', 'like', '%' . $this->search . '%')
-                    ->orWhere('contract_type', 'like', '%' . $this->search . '%')
-                    ->orWhere('uploaded_by', 'like', '%' . $this->search . '%')
-                    ->orWhere('status', 'like', '%' . $this->search . '%');
+                    $q->where('contract_name', 'like', "%{$this->search}%")
+                        ->orWhere('contract_type', 'like', "%{$this->search}%")
+                        ->orWhere('uploaded_by', 'like', "%{$this->search}%")
+                        ->orWhere('status', 'like', "%{$this->search}%");
                 });
             })
             ->latest()
@@ -302,7 +324,7 @@ new class extends Component {
         </flux:table>
 
         {{-- Create Contract Modal --}}
-        <flux:modal name="create-contract" class="w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+        <flux:modal name="create-contract" class=" overflow-y-auto" style="width:300em;">
             <div class="space-y-6">
 
                 <!-- Header -->
@@ -475,6 +497,12 @@ new class extends Component {
 
                         <flux:input label="Uploaded By" wire:model="uploaded_by" readonly />
 
+                        <flux:input
+                            label=""
+                            wire:model="user_id"
+                            readonly
+                            type="hidden"
+                        />
                     </div>
 
                 </div>

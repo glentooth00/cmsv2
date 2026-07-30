@@ -94,7 +94,7 @@ new class extends Component
         $this->customer_name = $contract->customer_name;
         $this->originalContract = clone $contract;
         $this->supplier = $contract->supplier;
-        $this->proc_mode = $this->contract->procInfo->mode;
+        $this->proc_mode = $this->contract->procInfo->proc_mode;
         $this->emp_position = $contract->emp_position;
         $this->contract_name = $contract->contract_name;
         $this->contract_type = $contract->contract_type;
