@@ -37,7 +37,7 @@
                     <flux:sidebar.item icon="document" class="cursor-pointer" :href="route('contracts.index')" :current="request()->routeIs('contract.index')" wire:navigate>
                         {{ __('Active Contracts') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item icon="document-text" class="cursor-pointer">
+                    <flux:sidebar.item icon="document-text" class="cursor-pointer" :href="route('contracts.expired')" :current="request()->routeIs('contract.expired')" wire:navigate>
                         {{-- icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate --}}
                         {{ __('Expired Contracts') }}
                     </flux:sidebar.item>
