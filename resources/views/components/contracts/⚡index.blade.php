@@ -7,11 +7,13 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use App\Models\Departments;
+use App\Models\Procurement;
 
 new class extends Component {
     use WithPagination;
     use WithFileUploads;
 
+    public $price = '';
     public $search = '';
     public $position = '';
     public $contract_name;
@@ -24,6 +26,9 @@ new class extends Component {
     public $contract_file;
     public $types = [];
     public $department_assigned;
+    public $customer_name;
+    public $supplier;
+    public $proc_mode;
 
     public function mount()
     {
@@ -46,15 +51,23 @@ new class extends Component {
             'status' => 'required|string',
             'uploader_dept' => 'required|string',
             'uploaded_by' => 'required|string',
-            'contract_file' => 'required|file|mimes:pdf|max:10240', // 10MB
+            'contract_file' => 'required|file|mimes:pdf|max:10240',
             'position' => 'nullable|string',
             'department_assigned' => 'nullable|string',
+            'price' => 'nullable|string',
+            'customer_name' => 'nullable|string',
+            'proc_mode' => 'nullable|string',
+            'supplier' => 'nullable|string',
         ]);
 
         // Store PDF
         $pdfPath = $this->contract_file->store('contracts', 'public');
 
-        // Save record
+        // Convert formatted price (e.g. 100,000.00) to decimal
+        $price = $this->price
+            ? str_replace(',', '', $this->price)
+            : null;
+
         Contracts::create([
             'contract_name' => $this->contract_name,
             'contract_type' => $this->contract_type,
@@ -66,21 +79,44 @@ new class extends Component {
             'contract_file' => $pdfPath,
             'emp_position' => $this->position,
             'department_assigned' => $this->department_assigned,
+            'customer_name' => $this->customer_name,
+            'proc_mode' => $this->proc_mode,
+            'supplier' => $this->supplier,
+            'price' => $price,
         ]);
 
-        // Reset fields
-        $this->reset(['contract_name', 'contract_type', 'start_date', 'end_date', 'uploader_dept', 'uploaded_by', 'contract_file', 'position', 'department_assigned']);
+        $this->reset([
+            'contract_name',
+            'contract_type',
+            'start_date',
+            'end_date',
+            'uploader_dept',
+            'uploaded_by',
+            'contract_file',
+            'position',
+            'department_assigned',
+            'customer_name',
+            'proc_mode',
+            'supplier',
+            'price',
+        ]);
 
         $this->status = 'Active';
 
         Flux::modal('create-contract')->close();
 
-        Flux::toast(heading: 'Contract Saved', text: 'The contract has been successfully saved.', variant: 'success');
+        Flux::toast(
+            heading: 'Contract Saved',
+            text: 'The contract has been successfully saved.',
+            variant: 'success'
+        );
     }
 
     public function render()
     {
         $dept = auth()->user()->departmentInfo?->department_name ?? '';
+
+        $procModes = Procurement::all();
 
         $departments = Departments::all();
 
@@ -101,6 +137,7 @@ new class extends Component {
             'contracts' => $contracts,
             'types' => $this->types,
             'departments' => $departments,
+            'procModes' => $procModes
         ]);
     }
 
@@ -118,6 +155,16 @@ new class extends Component {
     public function updatedSearch()
     {
         $this->resetPage();
+    }
+
+    public function updatedPrice($value)
+    {
+        // Keep only numbers and decimal point
+        $value = preg_replace('/[^0-9.]/', '', $value);
+
+        if ($value !== '') {
+            $this->price = number_format((float) $value, 2, '.', ',');
+        }
     }
 };
 ?>
@@ -357,12 +404,11 @@ new class extends Component {
 
                     <div class="space-y-5">
 
-                        <flux:textarea label="Contract Name" wire:model="contract_name" rows="4"
+                        <flux:input label="Contract Name" wire:model="contract_name" rows="4"
                             placeholder="Enter contract name" />
 
                         <select wire:model.live="contract_type" class="w-full rounded-lg border p-2">
                             <option value="">Select Contract Type</option>
-
                             @foreach ($types as $type)
                                 <option value="{{ $type->contract_type }}">
                                     {{ $type->contract_type }}
@@ -383,6 +429,18 @@ new class extends Component {
 
                         @endif
 
+                        @if ($contract_type === 'Goods Contract')
+                            <flux:input label="Customer Name" wire:model="customer_name"
+                                placeholder="customer name" />
+
+                            <flux:input
+                                label="Price"
+                                wire:model.live="price"
+                                placeholder="₱0.00"
+                            />
+
+                        @endif
+
                         <flux:select label="Status" wire:model="status">
                             <option value="">Select Status</option>
                             <option>Active</option>
@@ -394,6 +452,20 @@ new class extends Component {
                     </div>
 
                     <div class="space-y-5">
+
+                        @if ($contract_type === 'Goods Contract')
+
+                            <flux:input label="Supplier" wire:model="supplier"
+                                placeholder="supplier name" />
+                                
+                            <flux:select label="Department Assigned" wire:model="proc_mode">
+                                <option value="" hidden>Select mode</option>
+                                @foreach ($procModes as $procMode)
+                                    <option value="{{ $procMode->id }}">{{ $procMode->mode }}</option>
+                                @endforeach
+                            </flux:select>
+
+                        @endif
 
                         <flux:input type="date" label="Start Date" wire:model="start_date" />
 

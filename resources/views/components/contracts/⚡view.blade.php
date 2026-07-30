@@ -29,9 +29,14 @@ new class extends Component
     public $renew_contract_type;
     public $renew_department;
     public $renew_uploaded_by;
+    public $renew_price;
     public $emp_position;
     public $department_assigned;
     public $contractHistory = [];
+    public $customer_name;
+    public $price = '';
+    public $supplier;
+    public $proc_mode;
     
 
     protected array $thresholds = [
@@ -85,7 +90,11 @@ new class extends Component
         ->orderByDesc('start_date')
         ->get();
         $this->loadContractHistory();
+        $this->price = $contract->price;
+        $this->customer_name = $contract->customer_name;
         $this->originalContract = clone $contract;
+        $this->supplier = $contract->supplier;
+        $this->proc_mode = $this->contract->procInfo->mode;
         $this->emp_position = $contract->emp_position;
         $this->contract_name = $contract->contract_name;
         $this->contract_type = $contract->contract_type;
@@ -152,7 +161,6 @@ new class extends Component
         $this->editing = !$this->editing;
     }
 
-
     public function cancel()
     {
         $this->contract = Contracts::find($this->contract->id);
@@ -174,7 +182,6 @@ new class extends Component
 
         $this->editing = false;
     }
-
 
     public function save()
     {
@@ -257,7 +264,7 @@ new class extends Component
         $this->renew_contract_type = $this->contract->contract_type;
         $this->renew_department = $this->contract->uploader_dept;
         $this->renew_uploaded_by = auth()->user()->firstname . ' ' . auth()->user()->lastname;
-
+        $this->renew_price = $this->contract->price;
         Flux::modal('renew-contract')->show();
     }
 
@@ -456,9 +463,54 @@ new class extends Component
                 </div>
             @endif
 
+            @if (!empty($customer_name))
+                <div class="flex-1 min-w-0">
+                    <flux:input
+                        label="Customer Name"
+                        wire:model="customer_name"
+                        :disabled="!$editing"
+                    />
+                </div>
+            @endif
+
         </div>
 
         <div class="flex flex-wrap gap-4">
+
+            @if (!empty($customer_name))
+
+                <div class="flex-1 min-w-0">
+                    <flux:input
+                        label="Price"
+                        wire:model="price"
+                        :disabled="!$editing"
+                    />
+                </div>
+
+                 <div class="flex-1 min-w-0">
+                    <flux:input
+                        label="Supplier"
+                        wire:model="supplier"
+                        :disabled="!$editing"
+                    />
+                </div>
+
+                 <div class="flex-1 min-w-0">
+                    <flux:input
+                        label="Procurement Mode"
+                        wire:model="proc_mode"
+                        :disabled="!$editing"
+                    />
+                </div>
+
+            @endif
+
+        </div>
+        
+
+        <div class="flex flex-wrap gap-4">
+
+            
 
             <div class="flex-1 min-w-0">
 
