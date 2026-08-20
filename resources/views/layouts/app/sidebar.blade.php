@@ -45,6 +45,10 @@
                         {{-- icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate --}}
                         {{ __('Archived Contracts') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="document-minus" class="cursor-pointer" :href="route('contracts.suspended')" :current="request()->routeIs('contract.suspended')" wire:navigate>
+                        {{-- icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate --}}
+                        {{ __('Suspended Contracts') }}
+                    </flux:sidebar.item>
                 </flux:sidebar.group>
                 
                 @if (auth()->user()->user_type == 'Admin')
