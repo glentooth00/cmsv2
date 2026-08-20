@@ -282,6 +282,61 @@ new class extends Component
 
         $this->redirect(route('contracts.index'));
     }
+
+    public function suspendContract()
+    {
+        if ($this->contract->status !== 'Active') {
+            return;
+        }
+
+        $this->contract->update([
+            'status' => 'Suspended',
+            'suspended_at' => now(),
+            'suspended_days' => 0,
+        ]);
+
+        $this->contract->refresh();
+
+        Flux::toast(
+            heading: 'Contract Suspended',
+            text: 'The contract has been suspended successfully.',
+            variant: 'warning'
+        );
+    }
+
+    public function continueContract()
+    {
+        if ($this->contract->status !== 'Suspended') {
+            return;
+        }
+
+        $suspendedAt = \Carbon\Carbon::parse($this->contract->suspended_at);
+        $resumedAt = now();
+
+        $suspendedDays = $suspendedAt->startOfDay()->diffInDays(
+            $resumedAt->startOfDay()
+        );
+
+        $newEndDate = \Carbon\Carbon::parse($this->contract->end_date)
+            ->addDays($suspendedDays);
+
+        $this->contract->update([
+            'status' => 'Active',
+            'end_date' => $newEndDate,
+            'suspended_days' => $suspendedDays,
+            'resumed_at' => $resumedAt,
+        ]);
+
+        $this->contract->refresh();
+
+        $this->end_date = $newEndDate->format('Y-m-d');
+
+        Flux::toast(
+            heading: 'Contract Continued',
+            text: "Contract continued. {$suspendedDays} suspended days have been added to the expiry date.",
+            variant: 'success'
+        );
+    }
 };
 ?>
 <!-- Header -->
@@ -330,93 +385,123 @@ new class extends Component
 
         </div>
 
-    <div class="flex items-center gap-2">
+<div class="flex items-center gap-2">
 
-        @if($editing)
+    @if($editing)
 
+        <flux:button
+            variant="primary"
+            color="green"
+            icon="check"
+            wire:click="save"
+            class="cursor-pointer">
+            Save
+        </flux:button>
+
+        <flux:button
+            variant="primary"
+            color="zinc"
+            icon="x-mark"
+            wire:click="cancel"
+            class="cursor-pointer">
+            Cancel
+        </flux:button>
+
+    @else
+
+        {{-- EDIT --}}
+        <flux:button
+            variant="primary"
+            color="blue"
+            icon="pencil"
+            wire:click="toggleEdit"
+            class="cursor-pointer">
+            Edit
+        </flux:button>
+
+        {{-- RENEW CONTRACT --}}
+        @if($showRenew && $contract->status === 'Active')
+            <flux:button
+                variant="primary"
+                color="amber"
+                icon="arrow-path"
+                wire:click="openRenewModal"
+                class="cursor-pointer">
+                Renew Contract
+            </flux:button>
+        @endif
+
+        {{-- SUSPEND CONTRACT --}}
+        @if($contract->status === 'Active')
+            <flux:button
+                variant="primary"
+                color="amber"
+                icon="pause"
+                wire:click="suspendContract"
+                class="cursor-pointer">
+                Suspend Contract
+            </flux:button>
+        @endif
+
+        {{-- CONTINUE CONTRACT --}}
+        @if($contract->status === 'Suspended')
             <flux:button
                 variant="primary"
                 color="green"
-                icon="check"
-                wire:click="save"
+                icon="play"
+                wire:click="continueContract"
                 class="cursor-pointer">
-                Save
+                Continue Contract
             </flux:button>
-
-            <flux:button
-                variant="primary"
-                color="zinc"
-                icon="x-mark"
-                wire:click="cancel"
-                class="cursor-pointer">
-                Cancel
-            </flux:button>
-
-        @else
-
-            <flux:button
-                variant="primary"
-                color="blue"
-                icon="pencil"
-                wire:click="toggleEdit"
-                class="cursor-pointer">
-                Edit
-            </flux:button>
-
-            @if($showRenew)
-                <flux:button
-                    variant="primary"
-                    color="amber"
-                    icon="arrow-path"
-                    wire:click="openRenewModal"
-                    class="cursor-pointer">
-                    Renew Contract
-                </flux:button>
-            @endif
-
-            @if($showEnd)
-                <flux:button
-                    variant="primary"
-                    color="red"
-                    icon="x-circle"
-                    wire:click="endContract"
-                    class="cursor-pointer">
-                    End Contract
-                </flux:button>
-            @endif
-
-            <flux:button
-                variant="primary"
-                color="violet"
-                icon="archive-box"
-                wire:click="archiveContract"
-                class="cursor-pointer">
-                Archive
-            </flux:button>
-
         @endif
 
-        <a href="{{ Storage::url($contract->contract_file) }}" target="_blank">
+        {{-- END CONTRACT --}}
+        @if($showEnd && $contract->status === 'Active')
             <flux:button
                 variant="primary"
-                color="cyan"
-                icon="eye"
+                color="red"
+                icon="x-circle"
+                wire:click="endContract"
                 class="cursor-pointer">
-                Preview
+                End Contract
             </flux:button>
-        </a>
+        @endif
 
-        <a href="{{ Storage::url($contract->contract_file) }}" download>
-            <flux:button
-                variant="primary"
-                color="sky"
-                icon="arrow-down-tray"
-                class="cursor-pointer">
-                Download
-            </flux:button>
-        </a>
+        {{-- ARCHIVE --}}
+        <flux:button
+            variant="primary"
+            color="violet"
+            icon="archive-box"
+            wire:click="archiveContract"
+            class="cursor-pointer">
+            Archive
+        </flux:button>
 
-    </div>
+    @endif
+
+    {{-- PREVIEW --}}
+    <a href="{{ Storage::url($contract->contract_file) }}" target="_blank">
+        <flux:button
+            variant="primary"
+            color="cyan"
+            icon="eye"
+            class="cursor-pointer">
+            Preview
+        </flux:button>
+    </a>
+
+    {{-- DOWNLOAD --}}
+    <a href="{{ Storage::url($contract->contract_file) }}" download>
+        <flux:button
+            variant="primary"
+            color="sky"
+            icon="arrow-down-tray"
+            class="cursor-pointer">
+            Download
+        </flux:button>
+    </a>
+
+</div>
 
     </div>
 
@@ -566,7 +651,12 @@ new class extends Component
                 $today = now()->startOfDay();
                 $expiry = \Carbon\Carbon::parse($contract->end_date)->startOfDay();
 
-                if ($expiry->isPast()) {
+                if ($contract->status === 'Suspended') {
+
+                    $remaining = 'Suspended';
+
+                } elseif ($expiry->isPast()) {
+
                     $remaining = 'Expired';
 
                     if ($contract->status !== 'Expired') {
@@ -576,19 +666,14 @@ new class extends Component
                     }
 
                 } elseif ($expiry->isToday()) {
+
                     $remaining = 'Expires Today';
 
                 } else {
+
                     $daysRemaining = $today->diffInDays($expiry);
+
                     $remaining = $daysRemaining . ' days remaining';
-
-                    if ($daysRemaining <= 0 && $contract->status !== 'Expired') {
-                        $contract->update([
-                            'status' => 'Expired'
-                        ]);
-
-                        $remaining = 'Expired';
-                    }
                 }
             @endphp
 
