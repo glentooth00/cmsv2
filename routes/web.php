@@ -19,6 +19,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('/contracts/{contract}','contracts.view')->name('contracts.view');
     Route::livewire('/expired', 'contracts.expired')->name('contracts.expired');
     Route::livewire('/archived', 'contracts.archived')->name('contracts.archived');
+    Route::livewire('/suspended', 'contracts.suspended')->name('contracts.suspended');
 
     //proc mode
     Route::livewire('/procurement','procurement.index')->name('procurement.index');
