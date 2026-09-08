@@ -496,6 +496,19 @@ new class extends Component {
 
                         @endif
 
+                        @if ($contract_type === 'Transformer Rental Contract')
+                            
+                            <flux:input label="Customer Name" wire:model="customer_name"
+                                placeholder="" />
+
+                            <flux:input label="TC no." wire:model="tc_no"
+                                placeholder="" />
+
+                            <flux:input label="Account Number" wire:model="account_number"
+                                placeholder="11-1111-1111" />
+
+                        @endif
+
                         @if ($contract_type === 'Goods Contract')
                             <flux:input label="Customer Name" wire:model="customer_name"
                                 placeholder="customer name" />
