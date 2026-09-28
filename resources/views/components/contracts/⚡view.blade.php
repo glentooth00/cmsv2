@@ -37,6 +37,8 @@ new class extends Component
     public $price = '';
     public $supplier;
     public $proc_mode;
+    public $account_number;
+    public $tc_no;
     
 
     protected array $thresholds = [
@@ -99,7 +101,8 @@ new class extends Component
         $this->contract_name = $contract->contract_name;
         $this->contract_type = $contract->contract_type;
         $this->department_assigned = $this->contract->departmentInfo?->department_name;
-
+        $this->tc_no = $contract->tc_no;
+        $this->account_number = $contract->account_number;
         $this->start_date = $contract->start_date
             ? \Carbon\Carbon::parse($contract->start_date)->format('Y-m-d')
             : null;
@@ -557,41 +560,55 @@ new class extends Component
                     />
                 </div>
             @endif
-
         </div>
 
-        <div class="flex flex-wrap gap-4">
+        @if ($contract_type == 'Goods Contract')
+            <div class="flex flex-wrap gap-4">
+                    <div class="flex-1 min-w-0">
+                        <flux:input
+                            label="Price"
+                            wire:model="price"
+                            :disabled="!$editing"
+                        />
+                    </div>
 
-            @if (!empty($customer_name))
+                    <div class="flex-1 min-w-0">
+                        <flux:input
+                            label="Supplier"
+                            wire:model="supplier"
+                            :disabled="!$editing"
+                        />
+                    </div>
 
-                <div class="flex-1 min-w-0">
-                    <flux:input
-                        label="Price"
-                        wire:model="price"
-                        :disabled="!$editing"
-                    />
-                </div>
+                    <div class="flex-1 min-w-0">
+                        <flux:input
+                            label="Procurement Mode"
+                            wire:model="proc_mode"
+                            :disabled="!$editing"
+                        />
+                    </div>
+            </div>
+        @endif
 
-                 <div class="flex-1 min-w-0">
-                    <flux:input
-                        label="Supplier"
-                        wire:model="supplier"
-                        :disabled="!$editing"
-                    />
-                </div>
+        @if ($contract_type == 'Transformer Rental Contract')
+            <div class="flex flex-wrap gap-4">
+                    <div class="flex-1 min-w-0">
+                        <flux:input
+                            label="TC No"
+                            wire:model="tc_no"
+                            :disabled="!$editing"
+                        />
+                    </div>
 
-                 <div class="flex-1 min-w-0">
-                    <flux:input
-                        label="Procurement Mode"
-                        wire:model="proc_mode"
-                        :disabled="!$editing"
-                    />
-                </div>
-
-            @endif
-
-        </div>
-        
+                    <div class="flex-1 min-w-0">
+                        <flux:input
+                            label="Account Number"
+                            wire:model="account_number"
+                            :disabled="!$editing"
+                        />
+                    </div>
+            </div>
+        @endif
 
         <div class="flex flex-wrap gap-4">
 
