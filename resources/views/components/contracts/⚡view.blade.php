@@ -4,6 +4,7 @@ use App\Models\Contracts;
 use Livewire\Component;
 use Flux\Flux;
 use Livewire\WithFileUploads;
+use App\Models\ContractComment;
 
 new class extends Component
 {
@@ -39,6 +40,7 @@ new class extends Component
     public $proc_mode;
     public $account_number;
     public $tc_no;
+    public string $auditComment = '';
     
 
     protected array $thresholds = [
@@ -340,6 +342,22 @@ new class extends Component
             variant: 'success'
         );
     }
+
+    public function saveAuditComment(): void
+    {
+        $validated = $this->validate([
+            'auditComment' => ['required', 'string', 'max:5000'],
+        ]);
+
+        ContractComment::create([
+            'contract_id' => $this->contract->id,
+            'user_id' => auth()->id(),
+            'comment' => trim($validated['auditComment']),
+        ]);
+
+        $this->auditComment = '';
+    }
+
 };
 ?>
 <!-- Header -->
@@ -360,7 +378,7 @@ new class extends Component
 
                 <div class="flex items-center gap-3">
 
-                    <flux:heading size="xl" class="font-bold">
+                    <flux:heading class="text-based" variant="strong">
                         {{ $contract->contract_name }}
                     </flux:heading>
 
@@ -388,9 +406,10 @@ new class extends Component
 
         </div>
 
-<div class="flex items-center gap-2">
 
-    @if($editing)
+<div class="flex flex-wrap items-center gap-2">
+
+    @if ($editing)
 
         <flux:button
             variant="primary"
@@ -402,8 +421,7 @@ new class extends Component
         </flux:button>
 
         <flux:button
-            variant="primary"
-            color="zinc"
+            variant="ghost"
             icon="x-mark"
             wire:click="cancel"
             class="cursor-pointer">
@@ -422,71 +440,70 @@ new class extends Component
             Edit
         </flux:button>
 
-        {{-- RENEW CONTRACT --}}
-        @if($showRenew && $contract->status === 'Active')
-            <flux:button
-                variant="primary"
-                color="amber"
-                icon="arrow-path"
-                wire:click="openRenewModal"
-                class="cursor-pointer">
-                Renew Contract
-            </flux:button>
-        @endif
+        {{-- CONTRACT ACTIONS DROPDOWN --}}
+        <flux:dropdown position="bottom" align="end">
 
-        {{-- SUSPEND CONTRACT --}}
-        @if($contract->status === 'Active')
             <flux:button
-                variant="primary"
-                color="amber"
-                icon="pause"
-                wire:click="suspendContract"
-                class="cursor-pointer">
-                Suspend Contract
-            </flux:button>
-        @endif
+                variant="ghost"
+                icon="ellipsis-horizontal"
+                aria-label="More contract actions"
+                class="cursor-pointer" />
 
-        {{-- CONTINUE CONTRACT --}}
-        @if($contract->status === 'Suspended')
-            <flux:button
-                variant="primary"
-                color="green"
-                icon="play"
-                wire:click="continueContract"
-                class="cursor-pointer">
-                Continue Contract
-            </flux:button>
-        @endif
+            <flux:menu>
 
-        {{-- END CONTRACT --}}
-        @if($showEnd && $contract->status === 'Active')
-            <flux:button
-                variant="primary"
-                color="red"
-                icon="x-circle"
-                wire:click="endContract"
-                class="cursor-pointer">
-                End Contract
-            </flux:button>
-        @endif
+                @if ($showRenew && $contract->status === 'Active')
+                    <flux:menu.item
+                        icon="arrow-path"
+                        wire:click="openRenewModal">
+                        Renew Contract
+                    </flux:menu.item>
+                @endif
 
-        {{-- ARCHIVE --}}
-        <flux:button
-            variant="primary"
-            color="violet"
-            icon="archive-box"
-            wire:click="archiveContract"
-            class="cursor-pointer">
-            Archive
-        </flux:button>
+                @if ($contract->status === 'Active')
+                    <flux:menu.item
+                        icon="pause"
+                        wire:click="suspendContract">
+                        Suspend Contract
+                    </flux:menu.item>
+                @endif
+
+                @if ($contract->status === 'Suspended')
+                    <flux:menu.item
+                        icon="play"
+                        wire:click="continueContract">
+                        Continue Contract
+                    </flux:menu.item>
+                @endif
+
+                @if ($showEnd && $contract->status === 'Active')
+                    <flux:menu.item
+                        icon="x-circle"
+                        wire:click="endContract">
+                        End Contract
+                    </flux:menu.item>
+                @endif
+
+                <flux:menu.separator />
+
+                <flux:menu.item
+                    icon="archive-box"
+                    wire:click="archiveContract">
+                    Archive
+                </flux:menu.item>
+
+            </flux:menu>
+
+        </flux:dropdown>
 
     @endif
 
     {{-- PREVIEW --}}
-    <a href="{{ Storage::url($contract->contract_file) }}" target="_blank">
+    <a
+        href="{{ Storage::url($contract->contract_file) }}"
+        target="_blank"
+        rel="noopener noreferrer">
         <flux:button
-            variant="primary"
-            color="cyan"
+            variant="ghost"
             icon="eye"
             class="cursor-pointer">
             Preview
@@ -494,17 +511,29 @@ new class extends Component
     </a>
 
     {{-- DOWNLOAD --}}
-    <a href="{{ Storage::url($contract->contract_file) }}" download>
+    <a
+        href="{{ Storage::url($contract->contract_file) }}"
+        download>
         <flux:button
-            variant="primary"
-            color="sky"
+            variant="ghost"
             icon="arrow-down-tray"
             class="cursor-pointer">
             Download
         </flux:button>
     </a>
 
+    {{-- AUDIT COMMENTS --}}
+    <flux:modal.trigger name="audit-comments">
+        <flux:button
+            variant="ghost"
+            icon="chat-bubble-left-right"
+            class="cursor-pointer">
+            Comments
+        </flux:button>
+    </flux:modal.trigger>
+
 </div>
+
 
     </div>
 
@@ -513,184 +542,140 @@ new class extends Component
     <!-- Contract Information -->
     <div class="mt-8">
 
-    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <!-- Contract Information -->
+    <div class="mt-8">
 
-        <div class="flex flex-wrap gap-4">
+        <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
 
-            <div class="flex-1 min-w-0">
-                <flux:input
+            {{-- Contract Name --}}
+            <flux:input
                 label="Contract Name"
                 wire:model="contract_name"
                 :disabled="!$editing"
             />
-            </div>
 
-            <div class="flex-1 min-w-0">
+            {{-- Contract Type --}}
+            <flux:input
+                label="Contract Type"
+                wire:model="contract_type"
+                :disabled="!$editing"
+            />
+
+            {{-- Employee-specific fields --}}
+            @if (!empty($emp_position))
                 <flux:input
-                    label="Contract Type"
-                    wire:model="contract_type"
+                    label="Position"
+                    wire:model="emp_position"
                     :disabled="!$editing"
                 />
-            </div>
 
-            @if (!empty($emp_position))
-                <div class="flex-1 min-w-0">
-                    <flux:input
-                        label="Position"
-                        wire:model="emp_position"
-                        :disabled="!$editing"
-                    />
-                </div>
-
-                <div class="flex-1 min-w-0">
-                    <flux:input
-                        label="Department Assigned"
-                        wire:model="department_assigned"
-                        :disabled="!$editing"
-                    />
-                </div>
+                <flux:input
+                    label="Department Assigned"
+                    wire:model="department_assigned"
+                    :disabled="!$editing"
+                />
             @endif
 
+            {{-- Customer --}}
             @if (!empty($customer_name))
-                <div class="flex-1 min-w-0">
-                    <flux:input
-                        label="Customer Name"
-                        wire:model="customer_name"
-                        :disabled="!$editing"
-                    />
-                </div>
+                <flux:input
+                    label="Customer Name"
+                    wire:model="customer_name"
+                    :disabled="!$editing"
+                />
             @endif
-        </div>
 
-        @if ($contract_type == 'Goods Contract')
-            <div class="flex flex-wrap gap-4">
-                    <div class="flex-1 min-w-0">
-                        <flux:input
-                            label="Price"
-                            wire:model="price"
-                            :disabled="!$editing"
-                        />
-                    </div>
+            {{-- Goods Contract fields --}}
+            @if ($contract_type == 'Goods Contract')
+                <flux:input
+                    label="Price"
+                    wire:model="price"
+                    :disabled="!$editing"
+                />
 
-                    <div class="flex-1 min-w-0">
-                        <flux:input
-                            label="Supplier"
-                            wire:model="supplier"
-                            :disabled="!$editing"
-                        />
-                    </div>
+                <flux:input
+                    label="Supplier"
+                    wire:model="supplier"
+                    :disabled="!$editing"
+                />
 
-                    <div class="flex-1 min-w-0">
-                        <flux:input
-                            label="Procurement Mode"
-                            wire:model="proc_mode"
-                            :disabled="!$editing"
-                        />
-                    </div>
-            </div>
-        @endif
+                <flux:input
+                    label="Procurement Mode"
+                    wire:model="proc_mode"
+                    :disabled="!$editing"
+                />
+            @endif
 
-        @if ($contract_type == 'Transformer Rental Contract')
-            <div class="flex flex-wrap gap-4">
-                    <div class="flex-1 min-w-0">
-                        <flux:input
-                            label="TC No"
-                            wire:model="tc_no"
-                            :disabled="!$editing"
-                        />
-                    </div>
+            {{-- Transformer Rental Contract fields --}}
+            @if ($contract_type == 'Transformer Rental Contract')
+                <flux:input
+                    label="TC No"
+                    wire:model="tc_no"
+                    :disabled="!$editing"
+                />
 
-                    <div class="flex-1 min-w-0">
-                        <flux:input
-                            label="Account Number"
-                            wire:model="account_number"
-                            :disabled="!$editing"
-                        />
-                    </div>
-            </div>
-        @endif
+                <flux:input
+                    label="Account Number"
+                    wire:model="account_number"
+                    :disabled="!$editing"
+                />
+            @endif
 
-        <div class="flex flex-wrap gap-4">
+            {{-- Contract Start --}}
+            @if ($editing)
+                <flux:input
+                    label="Contract Start"
+                    type="date"
+                    icon="calendar-days"
+                    wire:model="start_date"
+                />
+            @else
+                <flux:input
+                    label="Contract Start"
+                    icon="calendar-days"
+                    :value="$contract->start_date
+                        ? \Carbon\Carbon::parse($contract->start_date)->format('F d, Y')
+                        : ''"
+                    disabled
+                />
+            @endif
 
-            
+            {{-- Expiry Date --}}
+            @if ($editing)
+                <flux:input
+                    label="Expiry Date"
+                    type="date"
+                    icon="calendar-days"
+                    wire:model="end_date"
+                />
+            @else
+                <flux:input
+                    label="Expiry Date"
+                    icon="calendar-days"
+                    :value="$contract->end_date
+                        ? \Carbon\Carbon::parse($contract->end_date)->format('F d, Y')
+                        : ''"
+                    disabled
+                />
+            @endif
 
-            <div class="flex-1 min-w-0">
-
-                @if($editing)
-
-                    <flux:input
-                        label="Contract Start"
-                        type="date"
-                        icon="calendar-days"
-                        wire:model="start_date"
-                    />
-
-                @else
-
-                    <flux:input
-                        label="Contract Start"
-                        icon="calendar-days"
-                        :value="\Carbon\Carbon::parse($contract->start_date)->format('F d, Y')"
-                        disabled
-                    />
-
-                @endif
-
-            </div>
-
-            <div class="flex-1 min-w-0">
-
-                @if($editing)
-
-                    <flux:input
-                        label="Expiry Date"
-                        type="date"
-                        icon="calendar-days"
-                        wire:model="end_date"
-                    />
-
-                @else
-
-                    <flux:input
-                        label="Expiry Date"
-                        icon="calendar-days"
-                        :value="\Carbon\Carbon::parse($contract->end_date)->format('F d, Y')"
-                        disabled
-                    />
-
-                @endif
-
-            </div>
-
-        <div class="flex-1 min-w-0">
-
+            {{-- Remaining Days --}}
             @php
                 $today = now()->startOfDay();
-                $expiry = \Carbon\Carbon::parse($contract->end_date)->startOfDay();
+                $expiry = $contract->end_date
+                    ? \Carbon\Carbon::parse($contract->end_date)->startOfDay()
+                    : null;
 
                 if ($contract->status === 'Suspended') {
-
                     $remaining = 'Suspended';
-
-                } elseif ($expiry->isPast()) {
-
+                } elseif (!$expiry) {
+                    $remaining = 'Not set';
+                } elseif ($expiry->lt($today)) {
                     $remaining = 'Expired';
-
-                    if ($contract->status !== 'Expired') {
-                        $contract->update([
-                            'status' => 'Expired'
-                        ]);
-                    }
-
                 } elseif ($expiry->isToday()) {
-
                     $remaining = 'Expires Today';
-
                 } else {
-
-                    $daysRemaining = $today->diffInDays($expiry);
-
-                    $remaining = $daysRemaining . ' days remaining';
+                    $remaining = $today->diffInDays($expiry) . ' days remaining';
                 }
             @endphp
 
@@ -701,39 +686,32 @@ new class extends Component
                 disabled
             />
 
-        </div>
+            {{-- Department --}}
+            <flux:input
+                label="Department"
+                wire:model="uploader_dept"
+                :disabled="!$editing"
+            />
+
+            {{-- Uploaded By --}}
+            <flux:input
+                label="Uploaded By"
+                wire:model="uploaded_by"
+                :disabled="!$editing"
+            />
+
+            {{-- Uploaded On --}}
+            <flux:input
+                label="Uploaded On"
+                :value="$contract->created_at
+                    ? $contract->created_at->format('F d, Y h:i A')
+                    : ''"
+                disabled
+            />
 
         </div>
-
-        <div class="flex flex-wrap gap-4">
-
-            <div class="flex-1 min-w-0">
-                <flux:input
-                    label="Department"
-                    wire:model="uploader_dept"
-                    :disabled="!$editing"
-                />
-            </div>
-
-            <div class="flex-1 min-w-0">
-                <flux:input
-                    label="Uploaded By"
-                    wire:model="uploaded_by"
-                    :disabled="!$editing"
-                />
-            </div>
-
-            <div class="flex-1 min-w-0">
-                <flux:input
-                    label="Uploaded On"
-                    :value="$contract->created_at->format('F d, Y h:i A')"
-                    disabled
-                />
-            </div>
-
-        </div>
-
     </div>
+
 
     <div class="mt-10">
 
@@ -809,6 +787,8 @@ new class extends Component
             </table>
 
         </div>
+
+        
 
     </div>
 
@@ -889,5 +869,215 @@ new class extends Component
 
     </flux:modal>
 
+
+
+
+
+<flux:modal
+    name="audit-comments"
+    position="right"
+    :dismissible="true"
+    class="!fixed !inset-y-0 !right-0 !left-auto !m-0 !h-[100dvh] !max-h-[100dvh] !w-full !max-w-md !translate-x-0 !translate-y-0 !rounded-none !p-0"
+>
+
+    {{-- Poll for new comments without refreshing the browser --}}
+    <div
+        wire:poll.5s
+        class="flex !h-[100dvh] min-h-0 flex-col overflow-hidden bg-white dark:bg-zinc-900"
+    >
+        {{-- Chat Header --}}
+        <div class="flex shrink-0 items-center justify-between border-b border-zinc-200 px-4 py-4 dark:border-zinc-800">
+            <div class="min-w-0">
+                <flux:heading size="lg">Comments</flux:heading>
+                <p class="mt-1 truncate text-xs text-zinc-500">
+                    {{ $contract->contract_name }}
+                </p>
+            </div>
+        </div>
+
+        {{-- Chat Messages: The ONLY Scrollable Area --}}
+        <div
+            class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4"
+            id="audit-comments-messages"
+        >
+            <div class="flex flex-col gap-4">
+                @forelse ($contract->comments()->with('user')->reorder('created_at', 'asc')->get() as $comment)
+                    @php
+                        $isMine = (int) $comment->user_id === (int) auth()->id();
+                    @endphp
+
+                    <div
+                        wire:key="contract-comment-{{ $comment->id }}"
+                        class="flex w-full {{ $isMine ? 'justify-end' : 'justify-start' }}"
+                    >
+                        <div class="max-w-[85%]">
+                            <p class="mb-1 px-1 text-xs text-zinc-500 {{ $isMine ? 'text-right' : 'text-left' }}">
+                                {{ $isMine ? 'You' : ($comment->user?->name ?? 'Unknown User') }}
+                            </p>
+
+                            <div class="rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap break-words {{ $isMine
+                                ? 'rounded-br-sm bg-blue-600 text-white'
+                                : 'rounded-bl-sm bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100' }}">
+                                {{ $comment->comment }}
+                            </div>
+
+                            <p class="mt-1 px-1 text-[10px] text-zinc-400 {{ $isMine ? 'text-right' : 'text-left' }}">
+                                {{ $comment->created_at->format('M d, Y h:i A') }}
+                            </p>
+                        </div>
+                    </div>
+                @empty
+                    <div class="flex flex-1 items-center justify-center py-12 text-center">
+                        <div>
+                            <flux:icon
+                                name="chat-bubble-left-right"
+                                class="mx-auto mb-2 size-8 text-zinc-300"
+                            />
+                            <p class="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                                No messages yet
+                            </p>
+                            <p class="mt-1 text-xs text-zinc-400">
+                                Send a message to start the conversation.
+                            </p>
+                        </div>
+                    </div>
+                @endforelse
+            </div>
+        </div>
+
+        {{-- Fixed Message Composer --}}
+        <div class="shrink-0 border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <form wire:submit.prevent="saveAuditComment" class="flex items-end gap-2">
+                <div class="min-w-0 flex-1">
+                    <flux:textarea
+                        placeholder="Type a message..."
+                        wire:model="auditComment"
+                        rows="2"
+                        required
+                    />
+
+                    @error('auditComment')
+                        <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <flux:button
+                    type="submit"
+                    variant="primary"
+                    icon="paper-airplane"
+                    aria-label="Send message"
+                    wire:loading.attr="disabled"
+                    wire:target="saveAuditComment"
+                >
+                    <span wire:loading.remove wire:target="saveAuditComment">
+                        Send
+                    </span>
+                    <span wire:loading wire:target="saveAuditComment">
+                        Sending
+                    </span>
+                </flux:button>
+            </form>
+        </div>
+    </div>
+</flux:modal>
+
+
+
 </div>
 
+<style>
+    [x-cloak] {
+    display: none !important;
+    
+}
+
+/* Blur and dim the page behind the Flux modal */
+/* CMSv2 — blur and dim the background behind Flux modals */
+[data-flux-modal-backdrop],
+[data-flux-modal-overlay],
+div.fixed.inset-0[class*="bg-zinc-400"],
+div.fixed.inset-0[class*="bg-zinc-900"] {
+    -webkit-backdrop-filter: blur(8px) !important;
+    backdrop-filter: blur(8px) !important;
+    background-color: rgba(0, 0, 0, 0.35) !important;
+}
+</style>
+
+<script>
+    
+let auditCommentsInstance = null;
+
+function openAuditComments() {
+    const canvas = document.getElementById('auditCommentsCanvas');
+    const backdrop = document.getElementById('auditCommentsBackdrop');
+
+    if (!canvas || !window.bootstrap?.Offcanvas) {
+        console.error('Bootstrap Offcanvas is not available.');
+        return;
+    }
+
+    auditCommentsInstance =
+        bootstrap.Offcanvas.getOrCreateInstance(canvas);
+
+    backdrop.style.display = 'block';
+    backdrop.classList.add('show');
+
+    auditCommentsInstance.show();
+
+    canvas.addEventListener('hidden.bs.offcanvas', () => {
+        backdrop.classList.remove('show');
+        backdrop.style.display = 'none';
+    }, { once: true });
+}
+
+function closeAuditComments() {
+    if (auditCommentsInstance) {
+        auditCommentsInstance.hide();
+    }
+}
+
+function addAuditComment(event) {
+    event.preventDefault();
+
+    const input = document.getElementById('auditCommentInput');
+    const list = document.getElementById('auditCommentsList');
+    const empty = document.getElementById('auditCommentsEmpty');
+
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    empty?.remove();
+
+    const card = document.createElement('div');
+    card.className = 'card mb-3';
+
+    const body = document.createElement('div');
+    body.className = 'card-body';
+
+    const header = document.createElement('div');
+    header.className =
+        'd-flex justify-content-between align-items-center mb-2';
+
+    const badge = document.createElement('span');
+    badge.className = 'badge text-bg-secondary';
+    badge.textContent = 'Audit';
+
+    const time = document.createElement('small');
+    time.className = 'text-secondary';
+    time.textContent = new Date().toLocaleString();
+
+    const message = document.createElement('p');
+    message.className = 'mb-0 text-break';
+    message.style.whiteSpace = 'pre-wrap';
+    message.textContent = text;
+
+    header.append(badge, time);
+    body.append(header, message);
+    card.append(body);
+    list.prepend(card);
+
+    input.value = '';
+}
+
+</script>
