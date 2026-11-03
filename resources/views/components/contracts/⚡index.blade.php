@@ -157,19 +157,39 @@ new class extends Component {
         }
 
         $contracts = $contracts
-            ->when($this->search, function ($query) {
-                $query->where(function ($q) {
-                    $q->where('contract_name', 'like', "%{$this->search}%")
-                        ->orWhere('contract_type', 'like', "%{$this->search}%")
-                        ->orWhere('uploaded_by', 'like', "%{$this->search}%")
-                        ->orWhere('status', 'like', "%{$this->search}%");
+    ->when($this->search, function ($query) {
+        $query->where(function ($q) {
+            $q->where('contract_name', 'like', "%{$this->search}%")
+                ->orWhere('contract_type', 'like', "%{$this->search}%")
+                ->orWhere('uploaded_by', 'like', "%{$this->search}%")
+                ->orWhere('status', 'like', "%{$this->search}%");
+        });
+    })
+    ->when($this->filterType, function ($query) {
+        $query->where('contract_type', $this->filterType);
+    })
+    ->withCount([
+        'comments as unread_comments_count' => function ($query) use ($user_id) {
+
+            // Exclude comments made by the current user.
+            $query->where('user_id', '!=', $user_id)
+
+                // Exclude comments already marked as read.
+                ->whereDoesntHave('reads', function ($q) use ($user_id) {
+                    $q->where('user_id', $user_id);
+                })
+
+                // Only notify users who have participated in this discussion.
+                ->whereExists(function ($q) use ($user_id) {
+                    $q->selectRaw('1')
+                        ->from('contract_comments as own_comments')
+                        ->whereColumn('own_comments.contract_id', 'contracts.id')
+                        ->where('own_comments.user_id', $user_id);
                 });
-            })
-            ->when($this->filterType, function ($query) {
-                $query->where('contract_type', $this->filterType);
-            })
-            ->latest()
-            ->paginate(10);
+        },
+    ])
+    ->latest()
+    ->paginate(10);
 
         return view('components.contracts.⚡index', [
             'contracts' => $contracts,
@@ -261,7 +281,7 @@ new class extends Component {
     @endif
 
 </div>
-
+<div wire:poll.3s>
     <flux:table :paginate="$contracts" sticky class="table-stripped">
 
         <flux:table.columns>
@@ -279,7 +299,28 @@ new class extends Component {
             @forelse($contracts as $contract)
                 <flux:table.row>
 
-                    <flux:table.cell>{{ $contract->contract_name }}</flux:table.cell>
+                    <flux:table.cell>
+                        <div class="flex items-center gap-2">
+
+                            <span class="font-medium text-zinc-800 dark:text-zinc-200">
+                                {{ $contract->contract_name }}
+                            </span>
+
+                            @if ($contract->unread_comments_count > 0)
+                                <span
+                                    title="{{ $contract->unread_comments_count }} unread comments"
+                                    class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600 ring-1 ring-inset ring-red-200 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20"
+                                >
+                                    <flux:icon name="chat-bubble-left-right" class="size-3.5" />
+
+                                    {{ $contract->unread_comments_count > 99
+                                        ? '99+'
+                                        : $contract->unread_comments_count }}
+                                </span>
+                        @endif
+
+                        </div>
+                    </flux:table.cell>
                     <flux:table.cell>
                         @switch($contract->contract_type)
                             @case('Employment Contract')
@@ -370,7 +411,7 @@ new class extends Component {
             </flux:table.rows>
 
     </flux:table>
-
+</div>
         {{-- Create Contract Modal --}}
         <flux:modal name="create-contract" class=" overflow-y-auto" style="width:300em;">
             <div class="space-y-6">

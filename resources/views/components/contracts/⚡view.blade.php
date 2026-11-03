@@ -358,21 +358,15 @@ new class extends Component
         ]);
 
         $this->auditComment = '';
+
+        // Refresh the unread comment count
+        unset($this->unreadCommentsCount);
     }
 
     #[Computed]
     public function unreadCommentsCount(): int
     {
         $userId = auth()->id();
-
-        // Only show notifications for contracts where this user has commented.
-        $hasParticipated = $this->contract->comments()
-            ->where('user_id', $userId)
-            ->exists();
-
-        if (! $hasParticipated) {
-            return 0;
-        }
 
         return $this->contract->comments()
             ->where('user_id', '!=', $userId)
@@ -385,15 +379,6 @@ new class extends Component
     public function markCommentsAsRead(): void
     {
         $userId = auth()->id();
-
-        // Only users who have participated in this discussion can clear its badge.
-        $hasParticipated = $this->contract->comments()
-            ->where('user_id', $userId)
-            ->exists();
-
-        if (! $hasParticipated) {
-            return;
-        }
 
         $unreadComments = $this->contract->comments()
             ->where('user_id', '!=', $userId)
@@ -580,24 +565,24 @@ new class extends Component
     </a>
 
     {{-- AUDIT COMMENTS --}}
-    <flux:modal.trigger name="audit-comments">
-        <span class="relative inline-flex" wire:poll.3s>
-            <flux:button
-                variant="ghost"
-                icon="chat-bubble-left-right"
-                class="cursor-pointer"
-                wire:click="markCommentsAsRead"
-            >
-                Comments
-            </flux:button>
+<flux:modal.trigger name="audit-comments">
+    <span class="relative inline-flex" wire:poll.3s>
+        <flux:button
+            variant="ghost"
+            icon="chat-bubble-left-right"
+            class="cursor-pointer"
+            wire:click="markCommentsAsRead"
+        >
+            Comments
+        </flux:button>
 
-            @if ($this->unreadCommentsCount > 0)
-                <span class="absolute -right-1.5 -top-1.5 z-10 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-bold leading-none text-white shadow-sm dark:border-zinc-900">
-                    {{ $this->unreadCommentsCount > 99 ? '99+' : $this->unreadCommentsCount }}
-                </span>
-            @endif
-        </span>
-    </flux:modal.trigger>
+        @if ($this->unreadCommentsCount > 0)
+            <span class="absolute -right-1.5 -top-1.5 z-10 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-bold text-white dark:border-zinc-900">
+                {{ $this->unreadCommentsCount > 99 ? '99+' : $this->unreadCommentsCount }}
+            </span>
+        @endif
+    </span>
+</flux:modal.trigger>
 
 </div>
 
