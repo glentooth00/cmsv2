@@ -1,3 +1,4 @@
+
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -6,23 +7,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('contracts', function (Blueprint $table) {
-            $table->string('account_number')->before('start_date');
-        });
+        if (! Schema::hasColumn('contracts', 'account_number')) {
+            Schema::table('contracts', function (Blueprint $table) {
+                $table->string('account_number')->before('start_date');
+            });
+        }
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('contracts', function (Blueprint $table) {
-            //
-        });
+        // Keep the existing column and its data.
     }
 };

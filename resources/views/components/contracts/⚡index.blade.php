@@ -144,7 +144,7 @@ new class extends Component {
 
         $user = auth()->user();
 
-        if ($user->user_type === 'Admin') {
+        if ($user->user_type === 'Admin' || (int) $user->department === 16 ) {
 
             $contracts = Contracts::query();
 
@@ -247,15 +247,18 @@ new class extends Component {
 
 </div>
 
-    <flux:button
-        size="sm"
-        variant="primary"
-        color="sky"
-        wire:click="openCreateContract">
-
-        Add Contract
-
-    </flux:button>
+    @if (
+        auth()->user()->user_type === 'Admin' &&
+        (int) auth()->user()->department !== 16
+    )
+        <flux:button
+            size="sm"
+            variant="primary"
+            color="sky"
+            wire:click="openCreateContract">
+            Add Contract
+        </flux:button>
+    @endif
 
 </div>
 
@@ -366,7 +369,7 @@ new class extends Component {
 
             </flux:table.rows>
 
-        </flux:table>
+    </flux:table>
 
         {{-- Create Contract Modal --}}
         <flux:modal name="create-contract" class=" overflow-y-auto" style="width:300em;">
