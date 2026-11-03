@@ -999,9 +999,16 @@ new class extends Component
                 @forelse ($contract->comments()->with('user')->reorder('created_at', 'asc')->get() as $comment)
                     @php
                         $isMine = (int) $comment->user_id === (int) auth()->id();
-                        $authorName = $isMine
-                            ? 'You'
-                            : ($comment->user?->name ?? 'Unknown User');
+
+                        $authorName = trim(implode(' ', array_filter([
+                            $comment->user?->firstname,
+                            $comment->user?->middlename,
+                            $comment->user?->lastname,
+                        ])));
+
+                        $authorName = $authorName ?: 'Unknown User';
+
+                        $displayName = $isMine ? 'You' : $authorName;
                     @endphp
 
                     <div
@@ -1017,7 +1024,7 @@ new class extends Component
                         <div class="min-w-0 max-w-[85%] sm:max-w-[78%]">
                             <div class="mb-1.5 flex items-center gap-2 px-1 {{ $isMine ? 'justify-end' : 'justify-start' }}">
                                 <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                                    {{ $authorName }}
+                                    {{ $displayName }}
                                 </span>
 
                                 <span class="text-[11px] text-zinc-500 dark:text-zinc-500">
