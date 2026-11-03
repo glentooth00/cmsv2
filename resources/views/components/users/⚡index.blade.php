@@ -2,11 +2,13 @@
 
 use Livewire\Component;
 use Livewire\WithFileUploads;
-use App\Models\User;
-use Flux\Flux;
 use Livewire\WithPagination;
+use App\Models\User;
 use App\Models\ContractTypes;
 use App\Models\Departments;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
+use Flux\Flux;
 
 new class extends Component {
     
@@ -32,64 +34,84 @@ new class extends Component {
 
     public function save()
     {
-        // Validate the input fields
-        $this->validate([
-            'firstName' => 'required|string|max:255',
-            'middleName' => 'nullable|string|max:255',
-            'lastName' => 'required|string|max:255',
-            'avatar' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'username' => 'required|string|max:255|unique:users,username',
-            'password' => 'required|string|min:8',
-            'contract_types' => 'required|array|min:1',
-            'user_type' => 'required|in:Admin,User',
-            'department' => 'required|string',
+        $validated = $this->validate([
+            'firstName' => ['required', 'string', 'max:255'],
+            'middleName' => ['nullable', 'string', 'max:255'],
+            'lastName' => ['required', 'string', 'max:255'],
+
+            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                'unique:users,username',
+            ],
+
+            'password' => ['required', 'string', 'min:8'],
+
+            'contract_types' => ['required', 'array', 'min:1'],
+            'contract_types.*' => ['required', 'integer', 'exists:contract_types,id'],
+
+            'user_type' => ['required', Rule::in(['Admin', 'User'])],
+
+            'department' => ['required', 'integer', 'exists:departments,id'],
         ]);
 
-        
-        $data = [
-            'firstname' => $this->firstName,
-            'middlename' => $this->middleName,
-            'lastname'   => $this->lastName,
-            'avatar'     => $this->avatar,
-            'username'   => $this->username,
-            'password'   => $this->password,
-            'contract_types' => $this->contract_types,
-            'department' => $this->department
-        ];
-
-
-        // Handle avatar upload if provided
-        if ($this->avatar) {
-            $avatarPath = $this->avatar->store('avatars', 'public');
-        } else {
+        try {
+            // Upload avatar
             $avatarPath = null;
+
+            if ($this->avatar) {
+                $avatarPath = $this->avatar->store('avatars', 'public');
+            }
+
+            // Create user
+            User::create([
+                'firstname' => $this->firstName,
+                'middlename' => $this->middleName,
+                'lastname' => $this->lastName,
+                'username' => $this->username,
+                'password' => Hash::make($this->password),
+                'user_type' => $this->user_type,
+                'contract_types' => $this->contract_types,
+                'avatar' => $avatarPath,
+                'department' => $this->department,
+            ]);
+
+            // Reset only form fields
+            $this->reset([
+                'avatar',
+                'firstName',
+                'middleName',
+                'lastName',
+                'username',
+                'password',
+                'contract_types',
+                'department',
+            ]);
+
+            $this->user_type = 'User';
+
+            // Close modal
+            Flux::modal('create-user')->close();
+
+            // Success notification
+            Flux::toast(
+                heading: 'User Created',
+                text: 'The user has been successfully created.',
+                variant: 'success'
+            );
+
+        } catch (\Throwable $e) {
+            report($e);
+
+            Flux::toast(
+                heading: 'Unable to Create User',
+                text: 'Something went wrong while saving the user. Please check the application logs.',
+                variant: 'danger'
+            );
         }
-
-        // Create the user
-        User::create([
-            'firstname' => $this->firstName,
-            'middlename' => $this->middleName,
-            'lastname' => $this->lastName,
-            'username' => $this->username,
-            'password' => Hash::make($this->password),
-            'user_type' => $this->user_type,
-            'contract_types' => $this->contract_types,
-            'avatar' => $avatarPath,
-            'department' => $this->department
-        ]);
-
-        // Reset the form fields
-        $this->reset();
-
-        // Close the modal
-        flux::modal('create-user')->close();
-
-        // Show a success message
-        Flux::toast(
-            heading: 'User Created',
-            text: 'The user has been successfully created.',
-            variant: 'success'
-        );
     }
 
     public function render()
@@ -218,7 +240,10 @@ new class extends Component {
     </flux:table>
 
 <flux:modal name="create-user" class="w-full max-w-7xl max-h-[90vh] overflow-y-auto">
-    <div class="space-y-6">
+
+    <form wire:submit="save" class="space-y-6">
+
+        {{-- Header --}}
         <div>
             <flux:heading size="lg">Create User</flux:heading>
             <flux:text class="mt-2">
@@ -226,15 +251,18 @@ new class extends Component {
             </flux:text>
         </div>
 
+        {{-- Personal Information --}}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- Left Column -->
+
+            {{-- Left Column --}}
             <div class="space-y-4">
 
-                <!-- Avatar Upload -->
+                {{-- Avatar Upload --}}
                 <div class="flex flex-col items-center">
-                    <form wire:submit="save">
+
                     <label for="avatar" class="group relative cursor-pointer">
-                        <div class="w-15 h-15 rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center group-hover:border-blue-500 transition">
+
+                        <div class="w-16 h-16 rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center group-hover:border-blue-500 transition">
 
                             @if ($avatar ?? null)
                                 <img
@@ -243,11 +271,13 @@ new class extends Component {
                                     class="w-full h-full object-cover"
                                 >
                             @else
-                                <svg xmlns="http://www.w3.org/2000/svg"
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
                                     class="w-14 h-14 text-zinc-400"
                                     fill="none"
                                     viewBox="0 0 24 24"
-                                    stroke="currentColor">
+                                    stroke="currentColor"
+                                >
                                     <path
                                         stroke-linecap="round"
                                         stroke-linejoin="round"
@@ -263,30 +293,39 @@ new class extends Component {
                             id="avatar"
                             type="file"
                             class="hidden"
-                            accept="image/*"
+                            accept="image/jpeg,image/png"
                             wire:model="avatar"
                         />
+
                     </label>
 
                     <p class="mt-3 text-sm text-zinc-500">
                         Click to upload profile picture
                     </p>
 
+                    <div wire:loading wire:target="avatar" class="mt-2 text-sm text-blue-500">
+                        Uploading image...
+                    </div>
+
                     @error('avatar')
                         <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
                     @enderror
+
                 </div>
 
+                {{-- Name --}}
                 <flux:input
                     label="First Name"
                     wire:model="firstName"
                     placeholder="Enter first name"
                 />
+
                 <flux:input
                     label="Middle Name"
                     wire:model="middleName"
                     placeholder="Enter middle name"
                 />
+
                 <flux:input
                     label="Last Name"
                     wire:model="lastName"
@@ -295,13 +334,15 @@ new class extends Component {
 
             </div>
 
-            <!-- Right Column -->
+            {{-- Right Column --}}
             <div class="space-y-4 mt-3">
+
                 <flux:input
                     label="Username"
                     wire:model="username"
                     placeholder="Enter username"
                 />
+
                 <flux:input
                     label="Password"
                     type="password"
@@ -310,55 +351,59 @@ new class extends Component {
                 />
 
             </div>
+
         </div>
 
+        {{-- User Type and Department --}}
         <flux:fieldset>
 
-    <flux:legend>User Type</flux:legend>
+            <flux:legend>User Type</flux:legend>
 
-    <flux:text class="mt-1 mb-4 text-sm text-zinc-500">
-        Select the user's access level.
-    </flux:text>
+            <flux:text class="mt-1 mb-4 text-sm text-zinc-500">
+                Select the user's access level.
+            </flux:text>
 
-    <flux:select
-        wire:model="user_type"
-        placeholder="Select user type">
+            <flux:select
+                wire:model="user_type"
+                placeholder="Select user type"
+            >
+                <flux:select.option value="User">
+                    User
+                </flux:select.option>
 
-        <flux:select.option value="User">
-            User
-        </flux:select.option>
+                <flux:select.option value="Admin">
+                    Administrator
+                </flux:select.option>
+            </flux:select>
 
-        <flux:select.option value="Admin">
-            Administrator
-        </flux:select.option>
+            @error('user_type')
+                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+            @enderror
 
-    </flux:select>
+            <flux:legend class="mt-4">User Department</flux:legend>
 
+            <flux:text class="mt-1 mb-4 text-sm text-zinc-500">
+                Select the user's Department.
+            </flux:text>
 
-    <flux:legend class="mt-4">User Department</flux:legend>
+            <flux:select
+                wire:model="department"
+                placeholder="Select Department"
+            >
+                @foreach ($departments as $department)
+                    <flux:select.option value="{{ $department->id }}">
+                        {{ $department->department_name }}
+                    </flux:select.option>
+                @endforeach
+            </flux:select>
 
-    <flux:text class="mt-1 mb-4 text-sm text-zinc-500">
-        Select the user's Department.
-    </flux:text>
-
-    <flux:select
-        wire:model="department"
-        placeholder="Select Department">
-
-        @foreach ($departments as $department)
-            <flux:select.option value="{{ $department->id }}">
-                {{ $department->department_name }}
-            </flux:select.option>
-        @endforeach
-
-    </flux:select>
-
-    @error('user_type')
-        <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-    @enderror
+            @error('department')
+                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+            @enderror
 
         </flux:fieldset>
 
+        {{-- Allowed Contract Types --}}
         <flux:fieldset>
 
             <flux:legend>Allowed Contract Types</flux:legend>
@@ -369,7 +414,7 @@ new class extends Component {
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
 
-                @foreach($availableContractTypes as $type)
+                @foreach ($availableContractTypes as $type)
 
                     <label class="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition">
 
@@ -396,11 +441,44 @@ new class extends Component {
 
         </flux:fieldset>
 
-        <div class="flex justify-end">
-           <flux:button type="submit" variant="primary" class="cursor-pointer">Save</flux:button>
+        {{-- General Validation Errors --}}
+        @if ($errors->any())
+            <div class="rounded-lg border border-red-200 bg-red-50 dark:bg-red-500/10 dark:border-red-500/20 p-4">
+                <p class="text-sm font-semibold text-red-600 dark:text-red-400">
+                    Please check the form for errors.
+                </p>
+            </div>
+        @endif
+
+        {{-- Footer --}}
+        <div class="flex justify-end gap-3 border-t border-zinc-200 dark:border-zinc-700 pt-4">
+
+            <flux:modal.close>
+                <flux:button type="button" variant="ghost">
+                    Cancel
+                </flux:button>
+            </flux:modal.close>
+
+            <flux:button
+                type="submit"
+                variant="primary"
+                class="cursor-pointer"
+                wire:loading.attr="disabled"
+                wire:target="save,avatar"
+            >
+                <span wire:loading.remove wire:target="save">
+                    Save User
+                </span>
+
+                <span wire:loading wire:target="save">
+                    Saving...
+                </span>
+            </flux:button>
+
         </div>
-        </form>
-    </div>
+
+    </form>
+
 </flux:modal>
 
 
