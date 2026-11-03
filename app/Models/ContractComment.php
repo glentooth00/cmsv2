@@ -22,4 +22,9 @@ class ContractComment extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    public function reads()
+    {
+        return $this->hasMany(ContractCommentRead::class, 'comment_id');
+    }
 }

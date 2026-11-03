@@ -6,20 +6,25 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('contract_comment_reads', function (Blueprint $table) {
             $table->id();
-            $table->timestamps();
+
+            $table->foreignId('comment_id')
+                ->constrained('contract_comments')
+                ->cascadeOnDelete();
+
+            $table->foreignId('user_id')
+                ->constrained('users')
+                ->cascadeOnDelete();
+
+            $table->timestamp('read_at')->useCurrent();
+
+            $table->unique(['comment_id', 'user_id']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('contract_comment_reads');

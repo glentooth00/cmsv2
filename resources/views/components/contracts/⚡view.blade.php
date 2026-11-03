@@ -5,6 +5,8 @@ use Livewire\Component;
 use Flux\Flux;
 use Livewire\WithFileUploads;
 use App\Models\ContractComment;
+use Livewire\Attributes\Computed;
+use App\Models\ContractCommentRead;
 
 new class extends Component
 {
@@ -358,6 +360,61 @@ new class extends Component
         $this->auditComment = '';
     }
 
+    #[Computed]
+    public function unreadCommentsCount(): int
+    {
+        $userId = auth()->id();
+
+        // Only show notifications for contracts where this user has commented.
+        $hasParticipated = $this->contract->comments()
+            ->where('user_id', $userId)
+            ->exists();
+
+        if (! $hasParticipated) {
+            return 0;
+        }
+
+        return $this->contract->comments()
+            ->where('user_id', '!=', $userId)
+            ->whereDoesntHave('reads', function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            })
+            ->count();
+    }
+
+    public function markCommentsAsRead(): void
+    {
+        $userId = auth()->id();
+
+        // Only users who have participated in this discussion can clear its badge.
+        $hasParticipated = $this->contract->comments()
+            ->where('user_id', $userId)
+            ->exists();
+
+        if (! $hasParticipated) {
+            return;
+        }
+
+        $unreadComments = $this->contract->comments()
+            ->where('user_id', '!=', $userId)
+            ->whereDoesntHave('reads', function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            })
+            ->get(['id']);
+
+        $now = now();
+
+        ContractCommentRead::insertOrIgnore(
+            $unreadComments->map(fn ($comment) => [
+                'comment_id' => $comment->id,
+                'user_id' => $userId,
+                'read_at' => $now,
+            ])->all()
+        );
+
+        unset($this->unreadCommentsCount);
+    }
+
 };
 ?>
 <!-- Header -->
@@ -524,12 +581,22 @@ new class extends Component
 
     {{-- AUDIT COMMENTS --}}
     <flux:modal.trigger name="audit-comments">
-        <flux:button
-            variant="ghost"
-            icon="chat-bubble-left-right"
-            class="cursor-pointer">
-            Comments
-        </flux:button>
+        <span class="relative inline-flex" wire:poll.3s>
+            <flux:button
+                variant="ghost"
+                icon="chat-bubble-left-right"
+                class="cursor-pointer"
+                wire:click="markCommentsAsRead"
+            >
+                Comments
+            </flux:button>
+
+            @if ($this->unreadCommentsCount > 0)
+                <span class="absolute -right-1.5 -top-1.5 z-10 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-bold leading-none text-white shadow-sm dark:border-zinc-900">
+                    {{ $this->unreadCommentsCount > 99 ? '99+' : $this->unreadCommentsCount }}
+                </span>
+            @endif
+        </span>
     </flux:modal.trigger>
 
 </div>
@@ -870,95 +937,162 @@ new class extends Component
     </flux:modal>
 
 
-
-
-
 <flux:modal
     name="audit-comments"
     position="right"
     :dismissible="true"
-    class="!fixed !inset-y-0 !right-0 !left-auto !m-0 !h-[100dvh] !max-h-[100dvh] !w-full !max-w-md !translate-x-0 !translate-y-0 !rounded-none !p-0"
+    class="!fixed !inset-y-0 !right-0 !left-auto !m-0 !h-[100dvh] !max-h-[100dvh] !w-full sm:!w-[520px] lg:!w-[560px] !max-w-none !translate-x-0 !translate-y-0 !rounded-none !p-0 !overflow-hidden"
 >
+    <div class="flex !h-[100dvh] min-h-0 flex-col overflow-hidden bg-zinc-50 dark:bg-zinc-950">
 
-    {{-- Poll for new comments without refreshing the browser --}}
-    <div
-        wire:poll.5s
-        class="flex !h-[100dvh] min-h-0 flex-col overflow-hidden bg-white dark:bg-zinc-900"
-    >
         {{-- Chat Header --}}
-        <div class="flex shrink-0 items-center justify-between border-b border-zinc-200 px-4 py-4 dark:border-zinc-800">
-            <div class="min-w-0">
-                <flux:heading size="lg">Comments</flux:heading>
-                <p class="mt-1 truncate text-xs text-zinc-500">
-                    {{ $contract->contract_name }}
-                </p>
+        <div class="relative shrink-0 border-b border-zinc-200 bg-white px-6 py-5 dark:border-zinc-800 dark:bg-zinc-900">
+            <div class="flex items-center gap-4">
+                <div class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                    <flux:icon name="chat-bubble-left-right" class="size-6" />
+                </div>
+
+                <div class="min-w-0 flex-1">
+                    <flux:heading size="lg" class="font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+                        Contract Discussion
+                    </flux:heading>
+
+                    <p class="mt-1 truncate text-sm text-zinc-600 dark:text-zinc-400">
+                        {{ $contract->contract_name }}
+                    </p>
+
+                    <div class="mt-2 flex items-center gap-2">
+                        <span class="size-2 rounded-full bg-emerald-500"></span>
+                        <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                            Contract comments
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
 
-        {{-- Chat Messages: The ONLY Scrollable Area --}}
+        {{-- Messages --}}
         <div
-            class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4"
             id="audit-comments-messages"
+            wire:poll.3s
+            x-data
+            x-init="
+                const container = $el;
+
+                const scrollToLatest = () => {
+                    container.scrollTop = container.scrollHeight;
+                };
+
+                const observer = new MutationObserver(() => {
+                    requestAnimationFrame(scrollToLatest);
+                });
+
+                observer.observe(container, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true
+                });
+
+                $nextTick(() => {
+                    requestAnimationFrame(scrollToLatest);
+                });
+
+                $cleanup(() => observer.disconnect());
+            "
+            class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-6"
         >
-            <div class="flex flex-col gap-4">
+            <div class="mx-auto flex w-full max-w-2xl flex-col gap-6">
+
+                {{-- Conversation Intro --}}
+                <div class="mb-2 text-center">
+                    <span class="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                        <flux:icon name="lock-closed" class="size-3.5" />
+                        Discussion for this contract
+                    </span>
+                </div>
+
                 @forelse ($contract->comments()->with('user')->reorder('created_at', 'asc')->get() as $comment)
                     @php
                         $isMine = (int) $comment->user_id === (int) auth()->id();
+                        $authorName = $isMine
+                            ? 'You'
+                            : ($comment->user?->name ?? 'Unknown User');
                     @endphp
 
                     <div
                         wire:key="contract-comment-{{ $comment->id }}"
-                        class="flex w-full {{ $isMine ? 'justify-end' : 'justify-start' }}"
+                        class="flex w-full items-end gap-2.5 {{ $isMine ? 'justify-end' : 'justify-start' }}"
                     >
-                        <div class="max-w-[85%]">
-                            <p class="mb-1 px-1 text-xs text-zinc-500 {{ $isMine ? 'text-right' : 'text-left' }}">
-                                {{ $isMine ? 'You' : ($comment->user?->name ?? 'Unknown User') }}
-                            </p>
+                        @if (!$isMine)
+                            <div class="mb-5 flex size-9 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                                {{ strtoupper(substr($authorName, 0, 1)) }}
+                            </div>
+                        @endif
 
-                            <div class="rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap break-words {{ $isMine
-                                ? 'rounded-br-sm bg-blue-600 text-white'
-                                : 'rounded-bl-sm bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100' }}">
-                                {{ $comment->comment }}
+                        <div class="min-w-0 max-w-[85%] sm:max-w-[78%]">
+                            <div class="mb-1.5 flex items-center gap-2 px-1 {{ $isMine ? 'justify-end' : 'justify-start' }}">
+                                <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                                    {{ $authorName }}
+                                </span>
+
+                                <span class="text-[11px] text-zinc-500 dark:text-zinc-500">
+                                    {{ $comment->created_at->format('M d, h:i A') }}
+                                </span>
                             </div>
 
-                            <p class="mt-1 px-1 text-[10px] text-zinc-400 {{ $isMine ? 'text-right' : 'text-left' }}">
-                                {{ $comment->created_at->format('M d, Y h:i A') }}
-                            </p>
+                            <div class="rounded-2xl px-4 py-3 text-sm leading-6 whitespace-pre-wrap break-words shadow-sm {{ $isMine
+                                ? 'rounded-br-md border border-zinc-200 bg-zinc-100 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100'
+                                : 'rounded-bl-md border border-zinc-200 bg-white text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200' }}">
+                                {{ $comment->comment }}
+                            </div>
                         </div>
+
+                        @if ($isMine)
+                            <div class="mb-5 flex size-9 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                                {{ strtoupper(substr($authorName, 0, 1)) }}
+                            </div>
+                        @endif
                     </div>
                 @empty
-                    <div class="flex flex-1 items-center justify-center py-12 text-center">
-                        <div>
+                    <div class="flex min-h-64 flex-1 flex-col items-center justify-center px-6 text-center">
+                        <div class="mb-4 flex size-16 items-center justify-center rounded-3xl bg-white shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
                             <flux:icon
                                 name="chat-bubble-left-right"
-                                class="mx-auto mb-2 size-8 text-zinc-300"
+                                class="size-8 text-zinc-500"
                             />
-                            <p class="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                                No messages yet
-                            </p>
-                            <p class="mt-1 text-xs text-zinc-400">
-                                Send a message to start the conversation.
-                            </p>
                         </div>
+
+                        <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                            Start the conversation
+                        </h3>
+
+                        <p class="mt-2 max-w-xs text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+                            Share an update, ask a question, or leave a comment about this contract.
+                        </p>
                     </div>
                 @endforelse
+
             </div>
         </div>
 
-        {{-- Fixed Message Composer --}}
-        <div class="shrink-0 border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-            <form wire:submit.prevent="saveAuditComment" class="flex items-end gap-2">
+        {{-- Fixed Composer --}}
+        <div class="shrink-0 border-t border-zinc-200 bg-white px-4 py-4 sm:px-6 dark:border-zinc-800 dark:bg-zinc-900">
+            <form wire:submit.prevent="saveAuditComment" class="mx-auto flex w-full max-w-2xl items-end gap-3">
                 <div class="min-w-0 flex-1">
                     <flux:textarea
-                        placeholder="Type a message..."
+                        placeholder="Write a message..."
                         wire:model="auditComment"
                         rows="2"
                         required
                     />
 
                     @error('auditComment')
-                        <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                        <p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>
                     @enderror
+
+                    <p class="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Comments are shared with users who can access this contract.
+                    </p>
                 </div>
 
                 <flux:button
@@ -966,6 +1100,7 @@ new class extends Component
                     variant="primary"
                     icon="paper-airplane"
                     aria-label="Send message"
+                    class="mb-6 shrink-0"
                     wire:loading.attr="disabled"
                     wire:target="saveAuditComment"
                 >
@@ -978,9 +1113,9 @@ new class extends Component
                 </flux:button>
             </form>
         </div>
+
     </div>
 </flux:modal>
-
 
 
 </div>
