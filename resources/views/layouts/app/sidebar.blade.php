@@ -41,9 +41,13 @@
                         {{-- icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate --}}
                         {{ __('Expired Contracts') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item icon="document-minus" class="cursor-pointer">
+                    <flux:sidebar.item icon="document-minus" class="cursor-pointer" :href="route('contracts.archived')" :current="request()->routeIs('contract.archived')" wire:navigate>
                         {{-- icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate --}}
                         {{ __('Archived Contracts') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="document-minus" class="cursor-pointer" :href="route('contracts.suspended')" :current="request()->routeIs('contract.suspended')" wire:navigate>
+                        {{-- icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate --}}
+                        {{ __('Suspended Contracts') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
                 
@@ -58,6 +62,12 @@
                     <flux:sidebar.group :heading="__('')" class="grid">
                         <flux:sidebar.item icon="building-library" :href="route('departments.index')" class="cursor-pointer" :current="request()->routeIs('department.index')" wire:navigate>
                             {{ __('Department') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+
+                    <flux:sidebar.group :heading="__('')" class="grid">
+                        <flux:sidebar.item icon="clipboard-document-list" :href="route('procurement.index')" class="cursor-pointer" :current="request()->routeIs('procurement.index')" wire:navigate>
+                            {{ __('Procurement Mode') }}
                         </flux:sidebar.item>
                     </flux:sidebar.group>
 

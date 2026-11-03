@@ -7,11 +7,13 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use App\Models\Departments;
+use App\Models\Procurement;
 
 new class extends Component {
     use WithPagination;
     use WithFileUploads;
 
+    public $price = '';
     public $search = '';
     public $position = '';
     public $contract_name;
@@ -24,6 +26,15 @@ new class extends Component {
     public $contract_file;
     public $types = [];
     public $department_assigned;
+    public $customer_name;
+    public $supplier;
+    public $proc_mode;
+    public $user_id;
+    public $tc_no;
+    public $address;
+    public $second_party;
+    public $account_number;
+    public $filterType = '';
 
     public function mount()
     {
@@ -34,6 +45,9 @@ new class extends Component {
         $this->types = ContractTypes::whereIn('id', $assignedTypes)->orderBy('contract_type')->get();
 
         $this->uploaded_by = trim($user->firstname . ' ' . $user->middlename . ' ' . $user->lastname);
+
+        $this->user_id = $user->id;
+
     }
 
     public function save()
@@ -46,15 +60,28 @@ new class extends Component {
             'status' => 'required|string',
             'uploader_dept' => 'required|string',
             'uploaded_by' => 'required|string',
-            'contract_file' => 'required|file|mimes:pdf|max:10240', // 10MB
-            'position' => 'required|string',
-            'department_assigned' => 'required|string',
+            'contract_file' => 'required|file|mimes:pdf|max:10240',
+            'position' => 'nullable|string',
+            'department_assigned' => 'nullable|string',
+            'price' => 'nullable|string',
+            'customer_name' => 'nullable|string',
+            'proc_mode' => 'nullable|string',
+            'supplier' => 'nullable|string',
+            'user_id' => 'required|integer',
+            'tc_no' => 'nullable',
+            'account_number' => 'nullable|string',
+            'address' => 'nullable',
+            'second_party' => 'nullable'
         ]);
 
         // Store PDF
         $pdfPath = $this->contract_file->store('contracts', 'public');
 
-        // Save record
+        // Convert formatted price (e.g. 100,000.00) to decimal
+        $price = $this->price
+            ? str_replace(',', '', $this->price)
+            : null;
+
         Contracts::create([
             'contract_name' => $this->contract_name,
             'contract_type' => $this->contract_type,
@@ -66,28 +93,109 @@ new class extends Component {
             'contract_file' => $pdfPath,
             'emp_position' => $this->position,
             'department_assigned' => $this->department_assigned,
+            'customer_name' => $this->customer_name,
+            'proc_mode' => $this->proc_mode,
+            'supplier' => $this->supplier,
+            'price' => $price,
+            'uploader_id' => $this->user_id,
+            'tc_no' => $this->tc_no,
+            'account_number' => $this->account_number,
+            'address' => $this->address,
+            'second_party' => $this->second_party
         ]);
 
-        // Reset fields
-        $this->reset(['contract_name', 'contract_type', 'start_date', 'end_date', 'uploader_dept', 'uploaded_by', 'contract_file', 'position', 'department_assigned']);
+        $this->reset([
+            'contract_name',
+            'contract_type',
+            'start_date',
+            'end_date',
+            'uploader_dept',
+            'uploaded_by',
+            'contract_file',
+            'position',
+            'department_assigned',
+            'customer_name',
+            'proc_mode',
+            'supplier',
+            'price',
+            'user_id'
+        ]);
 
         $this->status = 'Active';
 
         Flux::modal('create-contract')->close();
 
-        Flux::toast(heading: 'Contract Saved', text: 'The contract has been successfully saved.', variant: 'success');
+        Flux::toast(
+            heading: 'Contract Saved',
+            text: 'The contract has been successfully saved.',
+            variant: 'success'
+        );
     }
 
     public function render()
     {
         $dept = auth()->user()->departmentInfo?->department_name ?? '';
+        $user_id = auth()->user()->id;
+        $user_type = auth()->user()->user_type;
 
-        $departments = Departments::get();
+        $procModes = Procurement::all();
+
+        $departments = Departments::all();
+
+        $user = auth()->user();
+
+        if ($user->user_type === 'Admin' || (int) $user->department === 16 ) {
+
+            $contracts = Contracts::query();
+
+        } else {
+
+            $contracts = Contracts::where('uploader_dept', $dept)
+                ->where('status', 'Active')
+                ->where('uploader_id', $user->id);
+
+        }
+
+        $contracts = $contracts
+    ->when($this->search, function ($query) {
+        $query->where(function ($q) {
+            $q->where('contract_name', 'like', "%{$this->search}%")
+                ->orWhere('contract_type', 'like', "%{$this->search}%")
+                ->orWhere('uploaded_by', 'like', "%{$this->search}%")
+                ->orWhere('status', 'like', "%{$this->search}%");
+        });
+    })
+    ->when($this->filterType, function ($query) {
+        $query->where('contract_type', $this->filterType);
+    })
+    ->withCount([
+        'comments as unread_comments_count' => function ($query) use ($user_id) {
+
+            // Exclude comments made by the current user.
+            $query->where('user_id', '!=', $user_id)
+
+                // Exclude comments already marked as read.
+                ->whereDoesntHave('reads', function ($q) use ($user_id) {
+                    $q->where('user_id', $user_id);
+                })
+
+                // Only notify users who have participated in this discussion.
+                ->whereExists(function ($q) use ($user_id) {
+                    $q->selectRaw('1')
+                        ->from('contract_comments as own_comments')
+                        ->whereColumn('own_comments.contract_id', 'contracts.id')
+                        ->where('own_comments.user_id', $user_id);
+                });
+        },
+    ])
+    ->latest()
+    ->paginate(10);
 
         return view('components.contracts.⚡index', [
-            'contracts' => Contracts::latest()->where('uploader_dept', $dept)->where('status','Active')->paginate(10),
+            'contracts' => $contracts,
             'types' => $this->types,
             'departments' => $departments,
+            'procModes' => $procModes
         ]);
     }
 
@@ -101,6 +209,21 @@ new class extends Component {
 
         Flux::modal('create-contract')->show();
     }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPrice($value)
+    {
+        // Keep only numbers and decimal point
+        $value = preg_replace('/[^0-9.]/', '', $value);
+
+        if ($value !== '') {
+            $this->price = number_format((float) $value, 2, '.', ',');
+        }
+    }
 };
 ?>
 <div class="space-y-4">
@@ -113,20 +236,52 @@ new class extends Component {
         <flux:separator />
     </div>
 
-    <div class="flex items-center justify-between">
+<div class="flex items-center justify-between">
 
-        <flux:field class="w-64">
-            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Search contract..."
-                size="sm" />
-        </flux:field>
+<div class="flex items-center gap-3">
 
-        <flux:button size="sm" variant="primary" color="sky" class="cursor-pointer"
+    <flux:field class="w-72">
+        <flux:input
+            wire:model.live.debounce.300ms="search"
+            icon="magnifying-glass"
+            placeholder="Search contract..."
+            size="sm"
+        />
+    </flux:field>
+
+    <flux:field class="w-72">
+        <flux:select
+            wire:model.live="filterType"
+            size="sm">
+
+            <option value="">All Contract Types</option>
+
+            @foreach ($types as $type)
+                <option value="{{ $type->contract_type }}">
+                    {{ $type->contract_type }}
+                </option>
+            @endforeach
+
+        </flux:select>
+    </flux:field>
+
+</div>
+
+    @if (
+        auth()->user()->user_type === 'Admin' &&
+        (int) auth()->user()->department !== 16
+    )
+        <flux:button
+            size="sm"
+            variant="primary"
+            color="sky"
             wire:click="openCreateContract">
             Add Contract
         </flux:button>
+    @endif
 
-    </div>
-
+</div>
+<div wire:poll.3s>
     <flux:table :paginate="$contracts" sticky class="table-stripped">
 
         <flux:table.columns>
@@ -144,7 +299,28 @@ new class extends Component {
             @forelse($contracts as $contract)
                 <flux:table.row>
 
-                    <flux:table.cell>{{ $contract->contract_name }}</flux:table.cell>
+                    <flux:table.cell>
+                        <div class="flex items-center gap-2">
+
+                            <span class="font-medium text-zinc-800 dark:text-zinc-200">
+                                {{ $contract->contract_name }}
+                            </span>
+
+                            @if ($contract->unread_comments_count > 0)
+                                <span
+                                    title="{{ $contract->unread_comments_count }} unread comments"
+                                    class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600 ring-1 ring-inset ring-red-200 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20"
+                                >
+                                    <flux:icon name="chat-bubble-left-right" class="size-3.5" />
+
+                                    {{ $contract->unread_comments_count > 99
+                                        ? '99+'
+                                        : $contract->unread_comments_count }}
+                                </span>
+                        @endif
+
+                        </div>
+                    </flux:table.cell>
                     <flux:table.cell>
                         @switch($contract->contract_type)
                             @case('Employment Contract')
@@ -234,10 +410,10 @@ new class extends Component {
 
             </flux:table.rows>
 
-        </flux:table>
-
+    </flux:table>
+</div>
         {{-- Create Contract Modal --}}
-        <flux:modal name="create-contract" class="w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+        <flux:modal name="create-contract" class=" overflow-y-auto" style="width:300em;">
             <div class="space-y-6">
 
                 <!-- Header -->
@@ -339,12 +515,11 @@ new class extends Component {
 
                     <div class="space-y-5">
 
-                        <flux:textarea label="Contract Name" wire:model="contract_name" rows="4"
+                        <flux:input label="Contract Name" wire:model="contract_name" rows="4"
                             placeholder="Enter contract name" />
 
                         <select wire:model.live="contract_type" class="w-full rounded-lg border p-2">
                             <option value="">Select Contract Type</option>
-
                             @foreach ($types as $type)
                                 <option value="{{ $type->contract_type }}">
                                     {{ $type->contract_type }}
@@ -365,6 +540,42 @@ new class extends Component {
 
                         @endif
 
+                        @if ($contract_type === 'Transformer Rental Contract')
+                            
+                            <flux:input label="Customer Name" wire:model="customer_name"
+                                placeholder="" />
+
+                            <flux:input label="TC no." wire:model="tc_no"
+                                placeholder="" />
+
+                            <flux:input label="Account Number" wire:model="account_number"
+                                placeholder="11-1111-1111" />
+
+                        @endif
+
+                        @if ($contract_type === 'Goods Contract')
+                            <flux:input label="Customer Name" wire:model="customer_name"
+                                placeholder="customer name" />
+
+                            <flux:input
+                                label="Price"
+                                wire:model.live="price"
+                                placeholder="₱0.00"
+                            />
+
+                        @endif
+
+
+                        @if ($contract_type === 'Temporary Lighting Contract')
+
+                            <flux:input label="Customer Name" wire:model="customer_name"
+                                placeholder="customer name" />
+                                
+                            <flux:input label="TC no" wire:model="tc_no"
+                                placeholder="tc no." />
+
+                        @endif
+
                         <flux:select label="Status" wire:model="status">
                             <option value="">Select Status</option>
                             <option>Active</option>
@@ -373,18 +584,53 @@ new class extends Component {
                             <option>Cancelled</option>
                         </flux:select>
 
+                        @if ($contract_type === 'Temporary Lighting Contract')
+                            <flux:textarea label="Address" wire:model="address"
+                                placeholder="address" />
+
+                        @endif
+
                     </div>
 
                     <div class="space-y-5">
 
-                        <flux:input type="date" label="Start Date" wire:model="start_date" />
+                        @if ($contract_type === 'Temporary Lighting Contract')
+                            <flux:input label="Account Number" wire:model="account_number"
+                                placeholder="Account #" />
 
-                        <flux:input type="date" label="End Date" wire:model="end_date" />
+                            <flux:input label="Party of Second Part" wire:model="second_party"
+                                placeholder="name of second party" />
 
-                        <flux:input label="Uploader Department" wire:model="uploader_dept" readonly />
+                        @endif
 
-                        <flux:input label="Uploaded By" wire:model="uploaded_by" readonly />
+                        @if ($contract_type === 'Goods Contract')
 
+                            <flux:input label="Supplier" wire:model="supplier"
+                                placeholder="supplier name" />
+                                
+                            <flux:select label="Department Assigned" wire:model="proc_mode">
+                                <option value="" hidden>Select mode</option>
+                                @foreach ($procModes as $procMode)
+                                    <option value="{{ $procMode->id }}">{{ $procMode->mode }}</option>
+                                @endforeach
+                            </flux:select>
+
+                        @endif
+
+                        <flux:input type="date" label="Actual Date Started" wire:model="start_date" />
+
+                        <flux:input type="date" label="Expiration End" wire:model="end_date" />
+
+                        <flux:input type="hidden" wire:model="uploader_dept" readonly />
+
+                        <flux:input type="hidden" wire:model="uploaded_by" readonly />
+
+                        <flux:input
+                            label=""
+                            wire:model="user_id"
+                            readonly
+                            type="hidden"
+                        />
                     </div>
 
                 </div>
@@ -420,4 +666,4 @@ new class extends Component {
             </div>
         </flux:modal>
 
-    </div>
+</div>
