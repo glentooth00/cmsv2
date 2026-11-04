@@ -35,6 +35,7 @@ new class extends Component {
     public $second_party;
     public $account_number;
     public $filterType = '';
+    public $assigned_department;
 
     public function mount()
     {
@@ -76,7 +77,8 @@ new class extends Component {
             'tc_no' => 'nullable',
             'account_number' => 'nullable|string',
             'address' => 'nullable',
-            'second_party' => 'nullable'
+            'second_party' => 'nullable',
+            'assigned_department' => 'nullable|string',
         ]);
 
         // Store PDF
@@ -106,7 +108,8 @@ new class extends Component {
             'tc_no' => $this->tc_no,
             'account_number' => $this->account_number,
             'address' => $this->address,
-            'second_party' => $this->second_party
+            'second_party' => $this->second_party,
+            'assigned_department' => $this->assigned_department,
         ]);
 
         $this->reset([
@@ -123,7 +126,7 @@ new class extends Component {
             'proc_mode',
             'supplier',
             'price',
-            'user_id'
+            'assigned_department'
         ]);
 
         $this->status = 'Active';
@@ -137,6 +140,7 @@ new class extends Component {
         );
     }
 
+    
     public function render()
     {
         $dept = auth()->user()->departmentInfo?->department_name ?? '';
@@ -149,52 +153,64 @@ new class extends Component {
 
         $user = auth()->user();
 
-        if ($user->user_type === 'Admin' || (int) $user->department === 16 ) {
+        $userDepartment = auth()->user()->department;
+
+        if ($user->user_type === 'Admin' || (int) $user->department === 16) {
 
             $contracts = Contracts::query();
 
         } else {
 
-            $contracts = Contracts::where('uploader_dept', $dept)
-                ->where('status', 'Active')
-                ->where('uploader_id', $user->id);
+            $contracts = Contracts::where(function ($query) use ($dept, $user, $userDepartment) {
+
+                // Existing condition: contracts uploaded by the user's department and user.
+                $query->where(function ($q) use ($dept, $user) {
+                    $q->where('uploader_dept', $dept)
+                        ->where('status', 'Active')
+                        ->where('uploader_id', $user->id);
+                })
+
+                // Additional condition: contracts assigned to the user's department.
+                ->orWhere('assigned_department', $userDepartment);
+
+            });
 
         }
 
         $contracts = $contracts
-    ->when($this->search, function ($query) {
-        $query->where(function ($q) {
-            $q->where('contract_name', 'like', "%{$this->search}%")
-                ->orWhere('contract_type', 'like', "%{$this->search}%")
-                ->orWhere('uploaded_by', 'like', "%{$this->search}%")
-                ->orWhere('status', 'like', "%{$this->search}%");
-        });
-    })
-    ->when($this->filterType, function ($query) {
-        $query->where('contract_type', $this->filterType);
-    })
-    ->withCount([
-        'comments as unread_comments_count' => function ($query) use ($user_id) {
-
-            // Exclude comments made by the current user.
-            $query->where('user_id', '!=', $user_id)
-
-                // Exclude comments already marked as read.
-                ->whereDoesntHave('reads', function ($q) use ($user_id) {
-                    $q->where('user_id', $user_id);
-                })
-
-                // Only notify users who have participated in this discussion.
-                ->whereExists(function ($q) use ($user_id) {
-                    $q->selectRaw('1')
-                        ->from('contract_comments as own_comments')
-                        ->whereColumn('own_comments.contract_id', 'contracts.id')
-                        ->where('own_comments.user_id', $user_id);
+            ->when($this->search, function ($query) {
+                $query->where(function ($q) {
+                    $q->where('contract_name', 'like', "%{$this->search}%")
+                        ->orWhere('contract_type', 'like', "%{$this->search}%")
+                        ->orWhere('uploaded_by', 'like', "%{$this->search}%")
+                        ->orWhere('status', 'like', "%{$this->search}%");
                 });
-        },
-    ])
-    ->latest()
-    ->paginate(10);
+            })
+            ->when($this->filterType, function ($query) {
+                $query->where('contract_type', $this->filterType);
+            })
+            ->withCount([
+                'comments as unread_comments_count' => function ($query) use ($user_id) {
+
+                    // Exclude comments made by the current user.
+                    $query->where('user_id', '!=', $user_id)
+
+                        // Exclude comments already marked as read.
+                        ->whereDoesntHave('reads', function ($q) use ($user_id) {
+                            $q->where('user_id', $user_id);
+                        })
+
+                        // Only notify users who have participated in this discussion.
+                        ->whereExists(function ($q) use ($user_id) {
+                            $q->selectRaw('1')
+                                ->from('contract_comments as own_comments')
+                                ->whereColumn('own_comments.contract_id', 'contracts.id')
+                                ->where('own_comments.user_id', $user_id);
+                        });
+                },
+            ])
+            ->latest()
+            ->paginate(10);
 
         return view('components.contracts.⚡index', [
             'contracts' => $contracts,
@@ -229,6 +245,8 @@ new class extends Component {
             $this->price = number_format((float) $value, 2, '.', ',');
         }
     }
+
+    
 };
 ?>
 <div class="space-y-4">
@@ -576,6 +594,17 @@ new class extends Component {
                                 @endforeach
                             </flux:select>
 
+                        @endif
+
+
+                        @if ( (int)auth()->user()->department === 12 )
+
+                        <flux:select label="Department Assigned" wire:model="assigned_department">
+                                <option value="" hidden>Select Department</option>
+                                @foreach ($departments as $department)
+                                    <option value="{{ $department->id }}">{{ $department->department_name }}</option>
+                                @endforeach
+                            </flux:select>
                         @endif
 
                         @if ($contract_type === 'Transformer Rental Contract')
