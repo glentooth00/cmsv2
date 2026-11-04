@@ -6,12 +6,7 @@
         $departmentId = $user->department;
         $departmentName = $user->departmentInfo?->department_name ?? '';
 
-        /*
-        |--------------------------------------------------------------------------
-        | Contract Visibility
-        |--------------------------------------------------------------------------
-        */
-
+        // Contract visibility
         if ($user->user_type === 'Admin' || (int) $departmentId === 16) {
             $contractsQuery = \App\Models\Contracts::query();
         } else {
@@ -29,12 +24,7 @@
             });
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Dashboard Statistics
-        |--------------------------------------------------------------------------
-        */
-
+        // Dashboard statistics
         $totalContracts = (clone $contractsQuery)->count();
 
         $activeContracts = (clone $contractsQuery)
@@ -50,24 +40,14 @@
             ->whereDate('end_date', '<=', now()->addDays(30)->toDateString())
             ->count();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Contract Status Distribution
-        |--------------------------------------------------------------------------
-        */
-
+        // Status distribution
         $statusCounts = (clone $contractsQuery)
             ->select('status', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total'))
             ->groupBy('status')
             ->orderByDesc('total')
             ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Department Distribution
-        |--------------------------------------------------------------------------
-        */
-
+        // Department distribution
         $departmentCounts = (clone $contractsQuery)
             ->select('uploader_dept', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total'))
             ->whereNotNull('uploader_dept')
@@ -76,17 +56,9 @@
             ->limit(6)
             ->get();
 
-        $maxDepartmentCount = max(
-            $departmentCounts->max('total') ?? 0,
-            1
-        );
+        $maxDepartmentCount = max($departmentCounts->max('total') ?? 0, 1);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Expiring Contracts
-        |--------------------------------------------------------------------------
-        */
-
+        // Expiring contracts
         $expiringContracts = (clone $contractsQuery)
             ->whereDate('end_date', '>=', today())
             ->whereDate('end_date', '<=', now()->addDays(30)->toDateString())
@@ -94,394 +66,437 @@
             ->limit(5)
             ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Recent Contracts
-        |--------------------------------------------------------------------------
-        */
-
+        // Recently added contracts
         $recentContracts = (clone $contractsQuery)
             ->latest()
             ->limit(6)
             ->get();
+
+        $statusColors = [
+            'Active' => 'bg-emerald-500',
+            'Expired' => 'bg-red-500',
+            'Suspended' => 'bg-amber-500',
+            'Archived' => 'bg-slate-500',
+            'Pending' => 'bg-blue-500',
+        ];
+
+        $statusTextColors = [
+            'Active' => 'bg-emerald-100 text-emerald-700',
+            'Expired' => 'bg-red-100 text-red-700',
+            'Suspended' => 'bg-amber-100 text-amber-700',
+            'Archived' => 'bg-slate-100 text-slate-700',
+            'Pending' => 'bg-blue-100 text-blue-700',
+        ];
     @endphp
 
-    <div class="flex h-full w-full flex-1 flex-col gap-6">
+    <div class="min-h-screen space-y-7 bg-slate-50/70 p-4 sm:p-6 lg:p-8">
 
         {{-- Header --}}
-        <div class="flex flex-col gap-1">
-            <h1 class="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
-                Dashboard
-            </h1>
-
-            <p class="text-sm text-neutral-500 dark:text-neutral-400">
-                Welcome back, {{ $user->firstname ?? $user->username }}.
-                Here's your contract management overview.
-            </p>
-        </div>
-
-        {{-- Overview Cards --}}
-        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-            {{-- Total Contracts --}}
-            <div class="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                            Total Contracts
-                        </p>
-
-                        <h2 class="mt-2 text-3xl font-bold text-neutral-900 dark:text-white">
-                            {{ number_format($totalContracts) }}
-                        </h2>
-                    </div>
-
-                    <div class="rounded-xl bg-blue-50 p-3 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
-                        <flux:icon name="document-duplicate" class="size-6" />
-                    </div>
+        <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+                <div class="mb-1 flex items-center gap-2">
+                    <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+                    <p class="text-xs font-bold uppercase tracking-widest text-blue-600">
+                        Contract Management System
+                    </p>
                 </div>
 
-                <p class="mt-3 text-xs text-neutral-500">
-                    Contracts available to you
+                <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">
+                    Dashboard
+                </h1>
+
+                <p class="mt-1 text-sm text-slate-500">
+                    Welcome back, {{ $user->firstname ?? $user->name ?? 'User' }}.
+                    Here's your contract overview.
                 </p>
+            </div>
+
+            <div class="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <span class="text-lg">📅</span>
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Today
+                    </p>
+                    <p class="text-sm font-bold text-slate-700">
+                        {{ now()->format('F d, Y') }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        {{-- Statistics --}}
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+            {{-- Total Contracts --}}
+            <div class="relative overflow-hidden rounded-2xl border border-blue-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                <div class="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-blue-50"></div>
+
+                <div class="relative flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-500">Total Contracts</p>
+                        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
+                            {{ number_format($totalContracts) }}
+                        </h2>
+                        <p class="mt-2 text-xs font-medium text-slate-400">
+                            All accessible contracts
+                        </p>
+                    </div>
+
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-xl font-bold text-white shadow-md shadow-blue-200">
+                        📄
+                    </div>
+                </div>
             </div>
 
             {{-- Active Contracts --}}
-            <div class="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                            Active Contracts
-                        </p>
+            <div class="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                <div class="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-emerald-50"></div>
 
-                        <h2 class="mt-2 text-3xl font-bold text-neutral-900 dark:text-white">
+                <div class="relative flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-500">Active Contracts</p>
+                        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
                             {{ number_format($activeContracts) }}
                         </h2>
+                        <p class="mt-2 text-xs font-medium text-emerald-600">
+                            Currently active
+                        </p>
                     </div>
 
-                    <div class="rounded-xl bg-green-50 p-3 text-green-600 dark:bg-green-500/10 dark:text-green-400">
-                        <flux:icon name="check-circle" class="size-6" />
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 text-xl font-bold text-white shadow-md shadow-emerald-200">
+                        ✓
                     </div>
                 </div>
-
-                <p class="mt-3 text-xs text-neutral-500">
-                    Currently active contracts
-                </p>
             </div>
 
             {{-- Expiring Soon --}}
-            <div class="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                            Expiring Soon
-                        </p>
+            <div class="relative overflow-hidden rounded-2xl border border-amber-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                <div class="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-amber-50"></div>
 
-                        <h2 class="mt-2 text-3xl font-bold text-neutral-900 dark:text-white">
+                <div class="relative flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-500">Expiring Soon</p>
+                        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
                             {{ number_format($expiringContractsCount) }}
                         </h2>
+                        <p class="mt-2 text-xs font-medium text-amber-600">
+                            Within the next 30 days
+                        </p>
                     </div>
 
-                    <div class="rounded-xl bg-amber-50 p-3 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
-                        <flux:icon name="clock" class="size-6" />
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-xl font-bold text-white shadow-md shadow-amber-200">
+                        ⏱
                     </div>
                 </div>
-
-                <p class="mt-3 text-xs text-neutral-500">
-                    Expiring within the next 30 days
-                </p>
             </div>
 
             {{-- Expired Contracts --}}
-            <div class="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                            Expired Contracts
-                        </p>
+            <div class="relative overflow-hidden rounded-2xl border border-red-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                <div class="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-red-50"></div>
 
-                        <h2 class="mt-2 text-3xl font-bold text-neutral-900 dark:text-white">
+                <div class="relative flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-500">Expired Contracts</p>
+                        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
                             {{ number_format($expiredContracts) }}
                         </h2>
+                        <p class="mt-2 text-xs font-medium text-red-600">
+                            Past their end date
+                        </p>
                     </div>
 
-                    <div class="rounded-xl bg-red-50 p-3 text-red-600 dark:bg-red-500/10 dark:text-red-400">
-                        <flux:icon name="exclamation-triangle" class="size-6" />
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-red-600 text-xl font-bold text-white shadow-md shadow-red-200">
+                        !
                     </div>
                 </div>
-
-                <p class="mt-3 text-xs text-neutral-500">
-                    Contracts past their end date
-                </p>
             </div>
 
         </div>
 
         {{-- Analytics --}}
-        <div class="grid gap-6 lg:grid-cols-2">
+        <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
 
             {{-- Contract Status --}}
-            <div class="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="mb-6 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-900">
+                            Contract Status
+                        </h3>
+                        <p class="mt-1 text-xs text-slate-500">
+                            Overview of contracts by current status
+                        </p>
+                    </div>
 
-                <div class="mb-5">
-                    <h2 class="font-semibold text-neutral-900 dark:text-white">
-                        Contract Status
-                    </h2>
-
-                    <p class="mt-1 text-sm text-neutral-500">
-                        Distribution of contracts by status
-                    </p>
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg text-white">
+                        ▥
+                    </div>
                 </div>
 
-                <div class="space-y-5">
+                @forelse ($statusCounts as $status)
+                    @php
+                        $percentage = $totalContracts > 0
+                            ? ($status->total / $totalContracts) * 100
+                            : 0;
 
-                    @forelse ($statusCounts as $status)
-                        @php
-                            $percentage = $totalContracts > 0
-                                ? ($status->total / $totalContracts) * 100
-                                : 0;
+                        $barColor = $statusColors[$status->status] ?? 'bg-indigo-500';
+                    @endphp
 
-                            $statusColor = match (strtolower($status->status ?? '')) {
-                                'active' => 'bg-green-500',
-                                'expired' => 'bg-red-500',
-                                'suspended' => 'bg-amber-500',
-                                'archived' => 'bg-neutral-400',
-                                default => 'bg-blue-500',
-                            };
-                        @endphp
+                    <div class="mb-5 last:mb-0">
+                        <div class="mb-2 flex items-center justify-between">
+                            <span class="text-sm font-semibold text-slate-700">
+                                {{ $status->status ?: 'Unknown' }}
+                            </span>
 
-                        <div>
-                            <div class="mb-2 flex items-center justify-between text-sm">
-                                <span class="font-medium text-neutral-700 dark:text-neutral-300">
-                                    {{ $status->status ?? 'Unknown' }}
-                                </span>
-
-                                <span class="text-neutral-500">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-extrabold text-slate-900">
                                     {{ number_format($status->total) }}
-                                    <span class="ml-1 text-xs">
-                                        ({{ number_format($percentage, 1) }}%)
-                                    </span>
                                 </span>
-                            </div>
-
-                            <div class="h-2.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
-                                <div
-                                    class="{{ $statusColor }} h-full rounded-full transition-all"
-                                    style="width: {{ $percentage }}%"
-                                ></div>
+                                <span class="text-xs text-slate-400">
+                                    {{ number_format($percentage, 1) }}%
+                                </span>
                             </div>
                         </div>
-                    @empty
-                        <p class="py-8 text-center text-sm text-neutral-500">
-                            No contract records available.
-                        </p>
-                    @endforelse
 
-                </div>
+                        <div class="h-3 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                                class="{{ $barColor }} h-full rounded-full transition-all duration-500"
+                                style="width: {{ $percentage }}%"
+                            ></div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
+                        <p class="text-sm font-medium text-slate-400">
+                            No contract data available.
+                        </p>
+                    </div>
+                @endforelse
             </div>
 
             {{-- Department Distribution --}}
-            <div class="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-
-                <div class="mb-5">
-                    <h2 class="font-semibold text-neutral-900 dark:text-white">
-                        Department Distribution
-                    </h2>
-
-                    <p class="mt-1 text-sm text-neutral-500">
-                        Contracts grouped by uploading department
-                    </p>
-                </div>
-
-                <div class="space-y-5">
-
-                    @forelse ($departmentCounts as $department)
-                        @php
-                            $percentage = ($department->total / $maxDepartmentCount) * 100;
-                        @endphp
-
-                        <div>
-                            <div class="mb-2 flex items-center justify-between gap-3 text-sm">
-                                <span class="truncate font-medium text-neutral-700 dark:text-neutral-300">
-                                    {{ $department->uploader_dept }}
-                                </span>
-
-                                <span class="shrink-0 text-neutral-500">
-                                    {{ number_format($department->total) }}
-                                </span>
-                            </div>
-
-                            <div class="h-2.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
-                                <div
-                                    class="h-full rounded-full bg-blue-500"
-                                    style="width: {{ $percentage }}%"
-                                ></div>
-                            </div>
-                        </div>
-                    @empty
-                        <p class="py-8 text-center text-sm text-neutral-500">
-                            No department records available.
+            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="mb-6 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-900">
+                            Department Distribution
+                        </h3>
+                        <p class="mt-1 text-xs text-slate-500">
+                            Top departments by uploaded contracts
                         </p>
-                    @endforelse
+                    </div>
 
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-lg text-white">
+                        🏢
+                    </div>
                 </div>
+
+                @forelse ($departmentCounts as $department)
+                    @php
+                        $percentage = ($department->total / $maxDepartmentCount) * 100;
+                    @endphp
+
+                    <div class="mb-5 last:mb-0">
+                        <div class="mb-2 flex items-center justify-between gap-3">
+                            <span class="truncate text-sm font-semibold text-slate-700">
+                                {{ $department->uploader_dept }}
+                            </span>
+
+                            <span class="shrink-0 text-sm font-extrabold text-slate-900">
+                                {{ number_format($department->total) }}
+                            </span>
+                        </div>
+
+                        <div class="h-3 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                                class="h-full rounded-full bg-violet-600 transition-all duration-500"
+                                style="width: {{ $percentage }}%"
+                            ></div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
+                        <p class="text-sm font-medium text-slate-400">
+                            No department data available.
+                        </p>
+                    </div>
+                @endforelse
             </div>
 
         </div>
 
         {{-- Expiring Contracts --}}
-        <div class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-
-            <div class="flex items-center justify-between border-b border-neutral-200 px-5 py-4 dark:border-neutral-700">
+        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="flex flex-col justify-between gap-3 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center">
                 <div>
-                    <h2 class="font-semibold text-neutral-900 dark:text-white">
-                        Expiring Contracts
-                    </h2>
-
-                    <p class="mt-1 text-sm text-neutral-500">
-                        Contracts expiring within the next 30 days
+                    <div class="flex items-center gap-2">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 font-bold text-amber-700">
+                            ⏱
+                        </span>
+                        <h3 class="text-base font-extrabold text-slate-900">
+                            Expiring Contracts
+                        </h3>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-500">
+                        Contracts ending within the next 30 days
                     </p>
                 </div>
 
-                <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
-                    {{ $expiringContractsCount }} Contracts
+                <span class="w-fit rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-700">
+                    {{ $expiringContractsCount }} Upcoming
                 </span>
             </div>
 
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-neutral-50 text-xs uppercase text-neutral-500 dark:bg-neutral-800/50">
-                        <tr>
-                            <th class="px-5 py-3 font-medium">Contract Name</th>
-                            <th class="px-5 py-3 font-medium">Department</th>
-                            <th class="px-5 py-3 font-medium">End Date</th>
-                            <th class="px-5 py-3 font-medium">Days Remaining</th>
+                <table class="w-full min-w-[650px] text-left text-sm">
+                    <thead class="bg-slate-50">
+                        <tr class="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th class="px-6 py-4">Contract Name</th>
+                            <th class="px-6 py-4">Department</th>
+                            <th class="px-6 py-4">End Date</th>
+                            <th class="px-6 py-4">Days Remaining</th>
                         </tr>
                     </thead>
 
-                    <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
-
+                    <tbody class="divide-y divide-slate-100">
                         @forelse ($expiringContracts as $contract)
                             @php
-                                $daysRemaining = (int) now()
-                                    ->startOfDay()
-                                    ->diffInDays(
-                                        \Carbon\Carbon::parse($contract->end_date)->startOfDay(),
-                                        false
-                                    );
+                                $daysRemaining = (int) today()->diffInDays(
+                                    \Illuminate\Support\Carbon::parse($contract->end_date),
+                                    false
+                                );
                             @endphp
 
-                            <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
-                                <td class="px-5 py-4 font-medium text-neutral-900 dark:text-white">
-                                    {{ $contract->contract_name }}
+                            <tr class="transition hover:bg-slate-50">
+                                <td class="px-6 py-4">
+                                    <p class="font-bold text-slate-800">
+                                        {{ $contract->contract_name }}
+                                    </p>
+                                    <p class="mt-1 text-xs text-slate-400">
+                                        {{ $contract->contract_type }}
+                                    </p>
                                 </td>
 
-                                <td class="px-5 py-4 text-neutral-600 dark:text-neutral-400">
-                                    {{ $contract->uploader_dept ?? 'N/A' }}
+                                <td class="px-6 py-4 text-slate-600">
+                                    {{ $contract->uploader_dept ?? '—' }}
                                 </td>
 
-                                <td class="px-5 py-4 text-neutral-600 dark:text-neutral-400">
-                                    {{ \Carbon\Carbon::parse($contract->end_date)->format('M d, Y') }}
+                                <td class="px-6 py-4 font-medium text-slate-700">
+                                    {{ \Illuminate\Support\Carbon::parse($contract->end_date)->format('M d, Y') }}
                                 </td>
 
-                                <td class="px-5 py-4">
-                                    <span class="rounded-full px-2.5 py-1 text-xs font-semibold
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex rounded-lg px-3 py-1.5 text-xs font-bold
                                         {{ $daysRemaining <= 7
-                                            ? 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400'
-                                            : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400' }}">
+                                            ? 'bg-red-100 text-red-700'
+                                            : ($daysRemaining <= 15
+                                                ? 'bg-amber-100 text-amber-700'
+                                                : 'bg-emerald-100 text-emerald-700') }}">
                                         {{ $daysRemaining }} days
                                     </span>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="px-5 py-10 text-center text-neutral-500">
-                                    No contracts expiring within the next 30 days.
+                                <td colspan="4" class="px-6 py-12 text-center">
+                                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-xl text-emerald-600">
+                                        ✓
+                                    </div>
+                                    <p class="mt-3 font-semibold text-slate-700">
+                                        No contracts expiring soon
+                                    </p>
+                                    <p class="mt-1 text-xs text-slate-400">
+                                        There are no contracts ending within the next 30 days.
+                                    </p>
                                 </td>
                             </tr>
                         @endforelse
-
                     </tbody>
                 </table>
             </div>
         </div>
 
         {{-- Recent Contracts --}}
-        <div class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-900">
+                        Recently Added Contracts
+                    </h3>
+                    <p class="mt-1 text-xs text-slate-500">
+                        Latest contracts added to the system
+                    </p>
+                </div>
 
-            <div class="border-b border-neutral-200 px-5 py-4 dark:border-neutral-700">
-                <h2 class="font-semibold text-neutral-900 dark:text-white">
-                    Recent Contracts
-                </h2>
-
-                <p class="mt-1 text-sm text-neutral-500">
-                    Latest contracts uploaded or updated
-                </p>
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-lg text-white">
+                    +
+                </div>
             </div>
 
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-
-                    <thead class="bg-neutral-50 text-xs uppercase text-neutral-500 dark:bg-neutral-800/50">
-                        <tr>
-                            <th class="px-5 py-3 font-medium">Contract</th>
-                            <th class="px-5 py-3 font-medium">Type</th>
-                            <th class="px-5 py-3 font-medium">Department</th>
-                            <th class="px-5 py-3 font-medium">Status</th>
-                            <th class="px-5 py-3 font-medium">Date Added</th>
+                <table class="w-full min-w-[750px] text-left text-sm">
+                    <thead class="bg-slate-50">
+                        <tr class="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th class="px-6 py-4">Contract</th>
+                            <th class="px-6 py-4">Type</th>
+                            <th class="px-6 py-4">Department</th>
+                            <th class="px-6 py-4">Status</th>
+                            <th class="px-6 py-4">Date Added</th>
                         </tr>
                     </thead>
 
-                    <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
-
+                    <tbody class="divide-y divide-slate-100">
                         @forelse ($recentContracts as $contract)
-                            <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
+                            @php
+                                $statusClass = $statusTextColors[$contract->status]
+                                    ?? 'bg-slate-100 text-slate-700';
+                            @endphp
 
-                                <td class="px-5 py-4 font-medium text-neutral-900 dark:text-white">
-                                    {{ $contract->contract_name }}
+                            <tr class="transition hover:bg-slate-50">
+                                <td class="px-6 py-4">
+                                    <p class="font-bold text-slate-800">
+                                        {{ $contract->contract_name }}
+                                    </p>
+                                    <p class="mt-1 text-xs text-slate-400">
+                                        {{ $contract->tc_no ?? 'No contract number' }}
+                                    </p>
                                 </td>
 
-                                <td class="px-5 py-4 text-neutral-600 dark:text-neutral-400">
-                                    {{ $contract->contract_type }}
+                                <td class="px-6 py-4 text-slate-600">
+                                    {{ $contract->contract_type ?? '—' }}
                                 </td>
 
-                                <td class="px-5 py-4 text-neutral-600 dark:text-neutral-400">
-                                    {{ $contract->uploader_dept ?? 'N/A' }}
+                                <td class="px-6 py-4 text-slate-600">
+                                    {{ $contract->uploader_dept ?? '—' }}
                                 </td>
 
-                                <td class="px-5 py-4">
-                                    @php
-                                        $badgeColor = match (strtolower($contract->status ?? '')) {
-                                            'active' => 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
-                                            'expired' => 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-                                            'suspended' => 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-                                            default => 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
-                                        };
-                                    @endphp
-
-                                    <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $badgeColor }}">
-                                        {{ $contract->status }}
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex rounded-lg px-3 py-1.5 text-xs font-bold {{ $statusClass }}">
+                                        {{ $contract->status ?? 'Unknown' }}
                                     </span>
                                 </td>
 
-                                <td class="px-5 py-4 text-neutral-500">
-                                    {{ $contract->created_at?->format('M d, Y') ?? 'N/A' }}
+                                <td class="px-6 py-4 font-medium text-slate-600">
+                                    {{ $contract->created_at?->format('M d, Y') ?? '—' }}
                                 </td>
-
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-5 py-10 text-center text-neutral-500">
+                                <td colspan="5" class="px-6 py-12 text-center text-sm font-medium text-slate-400">
                                     No recent contracts found.
                                 </td>
                             </tr>
                         @endforelse
-
                     </tbody>
                 </table>
             </div>
         </div>
 
-    </div>
+        {{-- Footer --}}
+        <div class="flex flex-col justify-between gap-2 border-t border-slate-200 pt-4 text-xs text-slate-400 sm:flex-row">
+            <p>Contract Management System</p>
+            <p>Dashboard overview · {{ now()->format('Y') }}</p>
+        </div>
 
+    </div>
 </x-layouts::app>
