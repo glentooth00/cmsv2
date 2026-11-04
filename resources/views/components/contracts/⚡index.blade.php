@@ -60,7 +60,12 @@ new class extends Component {
             'status' => 'required|string',
             'uploader_dept' => 'required|string',
             'uploaded_by' => 'required|string',
-            'contract_file' => 'required|file|mimes:pdf|max:10240',
+            'contract_file' => [
+                            'required',
+                            'file',
+                            'mimes:pdf',
+                            'max:102400',
+                        ],
             'position' => 'nullable|string',
             'department_assigned' => 'nullable|string',
             'price' => 'nullable|string',
@@ -267,10 +272,18 @@ new class extends Component {
 
 </div>
 
-    @if (
-        auth()->user()->user_type === 'Admin' &&
-        (int) auth()->user()->department !== 16
+   @if (
+    auth()->user()->user_type === 'Admin' &&
+    (int) auth()->user()->department !== 16
     )
+        <flux:button
+            size="sm"
+            variant="primary"
+            color="sky"
+            wire:click="openCreateContract">
+            Add Contract
+        </flux:button>
+    @else
         <flux:button
             size="sm"
             variant="primary"
@@ -424,20 +437,29 @@ new class extends Component {
                     </flux:text>
                 </div>
 
-                <!-- PDF Upload -->
+                {{-- PDF Upload --}}
                 <flux:field>
 
                     <flux:label>Contract PDF</flux:label>
 
-                    <label for="contract_file"
-                        class="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-6 py-10 transition-all hover:border-sky-500 hover:bg-sky-50 dark:hover:bg-zinc-800">
+                    <label
+                        for="contract_file"
+                        class="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-6 py-10 transition-all hover:border-sky-500 hover:bg-sky-50 dark:hover:bg-zinc-800"
+                    >
 
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-14 h-14 text-zinc-400 mb-4" fill="none"
-                            viewBox="0 0 24 24" stroke="currentColor">
-
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                d="M12 16V4m0 0l-4 4m4-4l4 4M5 20h14" />
-
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="mb-4 h-14 w-14 text-zinc-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="1.5"
+                                d="M12 16V4m0 0l-4 4m4-4l4 4M5 20h14"
+                            />
                         </svg>
 
                         <p class="text-lg font-semibold text-zinc-700 dark:text-zinc-200">
@@ -445,51 +467,66 @@ new class extends Component {
                         </p>
 
                         <p class="mt-1 text-sm text-zinc-500">
-                            PDF files only • Maximum file size: 10 MB
+                            PDF files only • Maximum file size: 100 MB
                         </p>
 
-                        <input id="contract_file" type="file" wire:model="contract_file" accept=".pdf" class="hidden" />
+                        <input
+                            id="contract_file"
+                            type="file"
+                            wire:model="contract_file"
+                            accept="application/pdf,.pdf"
+                            class="hidden"
+                        />
 
                     </label>
 
-                    <!-- Uploading -->
-
-                    <div wire:loading wire:target="contract_file"
-                        class="mt-4 flex items-center gap-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4 text-blue-700">
-
-                        <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
-                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-                                class="opacity-25" />
-
-                            <path fill="currentColor" class="opacity-75" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-
+                    {{-- Uploading Indicator --}}
+                    <div
+                        wire:loading
+                        wire:target="contract_file"
+                        class="mt-4 flex items-center gap-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4 text-blue-700 dark:text-blue-300"
+                    >
+                        <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                            <circle
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                stroke-width="4"
+                                class="opacity-25"
+                            />
+                            <path
+                                fill="currentColor"
+                                class="opacity-75"
+                                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                            />
                         </svg>
 
-                        Uploading PDF...
-
+                        Uploading PDF, please wait...
                     </div>
 
-                    <!-- Selected File -->
-
+                    {{-- Selected File --}}
                     @if ($contract_file && !$errors->has('contract_file'))
-                        <div
-                            class="mt-4 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-4">
+                        <div class="mt-4 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-4">
 
                             <div class="flex items-center gap-4">
 
-                                <div
-                                    class="flex h-14 w-14 items-center justify-center rounded-lg bg-red-600 text-white font-bold text-lg">
+                                <div class="flex h-14 w-14 items-center justify-center rounded-lg bg-red-600 text-lg font-bold text-white">
                                     PDF
                                 </div>
 
-                                <div>
+                                <div class="min-w-0 flex-1">
 
-                                    <p class="font-semibold text-zinc-800 dark:text-white">
+                                    <p class="break-all font-semibold text-zinc-800 dark:text-white">
                                         {{ $contract_file->getClientOriginalName() }}
                                     </p>
 
                                     <p class="text-sm text-zinc-500">
                                         {{ number_format($contract_file->getSize() / 1024 / 1024, 2) }} MB
+                                    </p>
+
+                                    <p class="mt-1 text-xs text-green-600 dark:text-green-400">
+                                        File uploaded successfully
                                     </p>
 
                                 </div>
@@ -499,8 +536,9 @@ new class extends Component {
                         </div>
                     @endif
 
+                    {{-- Validation Error --}}
                     @error('contract_file')
-                        <div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+                        <div class="mt-4 rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4 text-sm text-red-600 dark:text-red-400">
                             {{ $message }}
                         </div>
                     @enderror
