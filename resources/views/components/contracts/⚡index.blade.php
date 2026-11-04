@@ -249,488 +249,661 @@ new class extends Component {
     
 };
 ?>
-<div class="space-y-4">
 
-    <div>
-        <flux:heading size="xl">Contracts</flux:heading>
-        <flux:text class="mb-2">
-            Manage contract records.
-        </flux:text>
-        <flux:separator />
+<div class="space-y-6">
+
+    {{-- PAGE HEADER --}}
+    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+            <div class="mb-1 flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+                <p class="text-xs font-bold uppercase tracking-widest text-blue-600">
+                    Contract Management System
+                </p>
+            </div>
+
+            <flux:heading size="xl" class="font-extrabold tracking-tight text-slate-900">
+                Contracts
+            </flux:heading>
+
+            <p class="mt-1 text-sm text-slate-500">
+                Manage, monitor, and review contract records.
+            </p>
+        </div>
+
+        <div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <span class="text-lg">📅</span>
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Today
+                </p>
+                <p class="text-sm font-bold text-slate-700">
+                    {{ now()->format('F d, Y') }}
+                </p>
+            </div>
+        </div>
     </div>
 
-<div class="flex items-center justify-between">
+    {{-- SEARCH, FILTER AND ACTIONS --}}
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
 
-<div class="flex items-center gap-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:flex">
 
-    <flux:field class="w-72">
-        <flux:input
-            wire:model.live.debounce.300ms="search"
-            icon="magnifying-glass"
-            placeholder="Search contract..."
-            size="sm"
-        />
-    </flux:field>
+                {{-- SEARCH --}}
+                <div class="w-full sm:w-72">
+                    <flux:input
+                        wire:model.live.debounce.300ms="search"
+                        icon="magnifying-glass"
+                        placeholder="Search contract..."
+                        size="sm"
+                    />
+                </div>
 
-    <flux:field class="w-72">
-        <flux:select
-            wire:model.live="filterType"
-            size="sm">
+                {{-- CONTRACT TYPE FILTER --}}
+                <div class="w-full sm:w-72">
+                    <flux:select
+                        wire:model.live="filterType"
+                        size="sm"
+                    >
+                        <option value="">All Contract Types</option>
 
-            <option value="">All Contract Types</option>
+                        @foreach ($types as $type)
+                            <option value="{{ $type->contract_type }}">
+                                {{ $type->contract_type }}
+                            </option>
+                        @endforeach
+                    </flux:select>
+                </div>
 
-            @foreach ($types as $type)
-                <option value="{{ $type->contract_type }}">
-                    {{ $type->contract_type }}
-                </option>
-            @endforeach
+            </div>
 
-        </flux:select>
-    </flux:field>
+            {{-- ADD CONTRACT --}}
+            <flux:button
+                size="sm"
+                variant="primary"
+                color="blue"
+                wire:click="openCreateContract"
+                class="w-full shadow-sm sm:w-auto"
+            >
+                <span class="mr-1 text-base">+</span>
+                Add Contract
+            </flux:button>
 
-</div>
+        </div>
+    </div>
 
-   @if (
-    auth()->user()->user_type === 'Admin' &&
-    (int) auth()->user()->department !== 16
-    )
-        <flux:button
-            size="sm"
-            variant="primary"
-            color="sky"
-            wire:click="openCreateContract">
-            Add Contract
-        </flux:button>
-    @else
-        <flux:button
-            size="sm"
-            variant="primary"
-            color="sky"
-            wire:click="openCreateContract">
-            Add Contract
-        </flux:button>
-    @endif
+    {{-- CONTRACT TABLE --}}
+    <div
+        wire:poll.3s
+        class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+    >
 
-</div>
-<div wire:poll.3s>
-    <flux:table :paginate="$contracts" sticky class="table-stripped">
+        {{-- TABLE HEADER --}}
+        <div class="flex flex-col justify-between gap-2 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center">
+            <div>
+                <h3 class="text-base font-extrabold text-slate-900">
+                    Contract Records
+                </h3>
+                <p class="mt-1 text-xs text-slate-500">
+                    Browse and manage available contract records.
+                </p>
+            </div>
 
-        <flux:table.columns>
-            <flux:table.column>Contract</flux:table.column>
-            <flux:table.column>Type</flux:table.column>
-            <flux:table.column>Status</flux:table.column>
-            <flux:table.column>Contract Start</flux:table.column>
-            <flux:table.column>Contract End</flux:table.column>
-            <flux:table.column>Days Remaining</flux:table.column>
-            <flux:table.column>Action</flux:table.column>
-        </flux:table.columns>
+            <span class="w-fit rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
+                Live Updates
+            </span>
+        </div>
 
-        <flux:table.rows>
+        <div class="overflow-x-auto">
+            <flux:table :paginate="$contracts" sticky class="table-stripped">
 
-            @forelse($contracts as $contract)
-                <flux:table.row>
+                <flux:table.columns>
+                    <flux:table.column class="!pl-6 !pr-5">
+                        Contract
+                    </flux:table.column>
+                    <flux:table.column>Type</flux:table.column>
+                    <flux:table.column>Status</flux:table.column>
+                    <flux:table.column>Contract Start</flux:table.column>
+                    <flux:table.column>Contract End</flux:table.column>
+                    <flux:table.column>Days Remaining</flux:table.column>
+                    <flux:table.column>Action</flux:table.column>
+                </flux:table.columns>
 
-                    <flux:table.cell>
-                        <div class="flex items-center gap-2">
+                <flux:table.rows>
 
-                            <span class="font-medium text-zinc-800 dark:text-zinc-200">
-                                {{ $contract->contract_name }}
-                            </span>
+                    @forelse($contracts as $contract)
 
-                            @if ($contract->unread_comments_count > 0)
-                                <span
-                                    title="{{ $contract->unread_comments_count }} unread comments"
-                                    class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600 ring-1 ring-inset ring-red-200 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20"
-                                >
-                                    <flux:icon name="chat-bubble-left-right" class="size-3.5" />
-
-                                    {{ $contract->unread_comments_count > 99
-                                        ? '99+'
-                                        : $contract->unread_comments_count }}
-                                </span>
-                        @endif
-
-                        </div>
-                    </flux:table.cell>
-                    <flux:table.cell>
-                        @switch($contract->contract_type)
-                            @case('Employment Contract')
-                                <flux:badge variant="primary" color="amber">Employment Contract</flux:badge>
-                            @break
-
-                            @case('Temporary Lighting Contract')
-                                <flux:badge variant="primary" color="indigo">Temporary Lighting Contract</flux:badge>
-                            @break
-
-                            @case('Rental Contract')
-                                <flux:badge variant="primary" color="fuchsia">Rental Contract</flux:badge>
-                            @break
-
-                            @case('Infrastructure Contract')
-                                <flux:badge variant="primary" color="emerald">Infrastructure Contract</flux:badge>
-                            @break
-
-                            @case('Goods Contract')
-                                <flux:badge variant="primary" color="blue">Goods Contract</flux:badge>
-                            @break
-
-                            @case('Service and Consultancy Contract')
-                                <flux:badge variant="primary" color="teal">Service and Consultancy Contract</flux:badge>
-                            @break
-
-                            @case('Power Suppliers Contract (LONG TERM)')
-                                <flux:badge variant="primary" color="lime">Power Suppliers Contract (LONG TERM)</flux:badge>
-                            @break
-
-                            @case('Power Suppliers Contract (SHORT TERM)')
-                                <flux:badge variant="primary" color="zinc">Power Suppliers Contract (SHORT TERM)</flux:badge>
-                            @break
-
-                            @case('Transformer Rental Contract')
-                                <flux:badge variant="primary" color="red">Transformer Rental Contract</flux:badge>
-                            @break
-
-                            @default
-                                <flux:badge variant="primary" color="gray">
-                                    {{ $contract->contract_type }}
-                                </flux:badge>
-                        @endswitch
-                    </flux:table.cell>
-                    <flux:table.cell>
-                        <flux:badge color="{{ $contract->status == 'Active' ? 'green' : 'zinc' }}">
-                            {{ $contract->status }}
-                        </flux:badge>
-                    </flux:table.cell>
-                    <flux:table.cell>{{ \Carbon\Carbon::parse($contract->start_date)->format('F d, Y') }}
-                    </flux:table.cell>
-                    <flux:table.cell>{{ \Carbon\Carbon::parse($contract->end_date)->format('F d, Y') }}
-                    </flux:table.cell>
-                    <flux:table.cell>
                         @php
                             $today = \Carbon\Carbon::today();
                             $endDate = \Carbon\Carbon::parse($contract->end_date);
-                            $daysRemaining = $today->diffInDays($endDate, false); // keeps negative values
+                            $daysRemaining = $today->diffInDays($endDate, false);
+
+                            $statusClass = match ($contract->status) {
+                                'Active' => 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+                                'Completed' => 'bg-blue-100 text-blue-700 ring-blue-200',
+                                'Expired' => 'bg-red-100 text-red-700 ring-red-200',
+                                'Cancelled' => 'bg-slate-100 text-slate-700 ring-slate-200',
+                                'Suspended' => 'bg-amber-100 text-amber-700 ring-amber-200',
+                                default => 'bg-slate-100 text-slate-700 ring-slate-200',
+                            };
                         @endphp
 
-                        @if ($daysRemaining < 0)
-                            <flux:badge color="red">Expired</flux:badge>
-                        @elseif($daysRemaining <= 20)
-                            <flux:badge color="amber">{{ $daysRemaining }} days</flux:badge>
-                        @else
-                            <flux:badge color="green">{{ $daysRemaining }} days</flux:badge>
-                            {{-- Or use color="emerald" if you prefer a mint green --}}
-                        @endif
-                    </flux:table.cell>
-                    <flux:table.cell>
-                        <a href="{{ route('contracts.view', $contract->id) }}">
-                            <flux:button class="cursor-pointer" size="sm" icon="eye" color="cyan">
+                        <flux:table.row
+    class="group cursor-pointer transition-colors duration-200 hover:!bg-blue-50/80"
+    onclick="window.location='{{ route('contracts.view', $contract->id) }}'"
+>
+
+                            {{-- CONTRACT NAME --}}
+                            <flux:table.cell class="!pl-6 !pr-5">
+                                <div class="flex min-w-[100px] items-center gap-3">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-sm font-extrabold text-blue-700">
+                                        PDF
+                                    </div>
+
+                                    <div class="min-w-0">
+                                        <p class="font-bold text-slate-800">
+                                            {{ $contract->contract_name }}
+                                        </p>
+
+                                        <p class="mt-0.5 text-xs text-slate-400">
+                                            {{ $contract->tc_no ?? 'Contract Record' }}
+                                        </p>
+                                    </div>
+
+                                    @if ($contract->unread_comments_count > 0)
+                                        <span
+                                            title="{{ $contract->unread_comments_count }} unread comments"
+                                            class="inline-flex shrink-0 items-center gap-1 rounded-lg bg-red-100 px-2 py-1 text-xs font-extrabold text-red-700 ring-1 ring-inset ring-red-200"
+                                        >
+                                            💬
+                                            {{ $contract->unread_comments_count > 99 ? '99+' : $contract->unread_comments_count }}
+                                        </span>
+                                    @endif
+                                </div>
+                            </flux:table.cell>
+
+                            {{-- CONTRACT TYPE --}}
+                            <flux:table.cell>
+                                @php
+                                    $typeClass = match ($contract->contract_type) {
+                                        'Employment Contract' => 'bg-amber-100 text-amber-800 ring-amber-200',
+                                        'Temporary Lighting Contract' => 'bg-indigo-100 text-indigo-800 ring-indigo-200',
+                                        'Rental Contract' => 'bg-fuchsia-100 text-fuchsia-800 ring-fuchsia-200',
+                                        'Infrastructure Contract' => 'bg-emerald-100 text-emerald-800 ring-emerald-200',
+                                        'Goods Contract' => 'bg-blue-100 text-blue-800 ring-blue-200',
+                                        'Service and Consultancy Contract' => 'bg-teal-100 text-teal-800 ring-teal-200',
+                                        'Power Suppliers Contract (LONG TERM)' => 'bg-lime-100 text-lime-800 ring-lime-200',
+                                        'Power Suppliers Contract (SHORT TERM)' => 'bg-slate-100 text-slate-800 ring-slate-200',
+                                        'Transformer Rental Contract' => 'bg-red-100 text-red-800 ring-red-200',
+                                        default => 'bg-gray-100 text-gray-700 ring-gray-200',
+                                    };
+                                @endphp
+
+                                <span class="inline-flex whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-bold ring-1 ring-inset {{ $typeClass }}">
+                                    {{ $contract->contract_type }}
+                                </span>
+                            </flux:table.cell>
+
+                            {{-- STATUS --}}
+                            <flux:table.cell>
+                                <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-bold ring-1 ring-inset {{ $statusClass }}">
+                                    <span class="h-1.5 w-1.5 rounded-full {{ $contract->status === 'Active' ? 'bg-emerald-600' : ($contract->status === 'Expired' ? 'bg-red-600' : 'bg-current') }}"></span>
+                                    {{ $contract->status }}
+                                </span>
+                            </flux:table.cell>
+
+                            {{-- START DATE --}}
+                            <flux:table.cell>
+                                <span class="whitespace-nowrap text-sm font-medium text-slate-600">
+                                    {{ \Carbon\Carbon::parse($contract->start_date)->format('F d, Y') }}
+                                </span>
+                            </flux:table.cell>
+
+                            {{-- END DATE --}}
+                            <flux:table.cell>
+                                <span class="whitespace-nowrap text-sm font-medium text-slate-600">
+                                    {{ \Carbon\Carbon::parse($contract->end_date)->format('F d, Y') }}
+                                </span>
+                            </flux:table.cell>
+
+                            {{-- DAYS REMAINING --}}
+                            <flux:table.cell>
+                                @if ($daysRemaining < 0)
+                                    <span class="inline-flex whitespace-nowrap rounded-lg bg-red-100 px-3 py-1.5 text-xs font-bold text-red-700 ring-1 ring-inset ring-red-200">
+                                        Expired
+                                    </span>
+                                @elseif ($daysRemaining <= 20)
+                                    <span class="inline-flex whitespace-nowrap rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-700 ring-1 ring-inset ring-amber-200">
+                                        {{ $daysRemaining }} days
+                                    </span>
+                                @else
+                                    <span class="inline-flex whitespace-nowrap rounded-lg bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                                        {{ $daysRemaining }} days
+                                    </span>
+                                @endif
+                            </flux:table.cell>
+
+                            {{-- ACTION --}}
+                           {{-- ACTION --}}
+                        <flux:table.cell>
+                            <span class="inline-flex items-center gap-1 text-sm font-bold text-blue-600 transition-colors group-hover:text-blue-800">
                                 View
-                            </flux:button>
-                        </a>
-                    </flux:table.cell>
-                </flux:table.row>
-
-                @empty
-
-                    <flux:table.row>
-                        <flux:table.cell colspan="7" class="text-center py-5">
-                            No contracts found.
+                                <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                            </span>
                         </flux:table.cell>
-                    </flux:table.row>
-                @endforelse
 
-            </flux:table.rows>
+                        </flux:table.row>
 
-    </flux:table>
-</div>
-        {{-- Create Contract Modal --}}
-        <flux:modal name="create-contract" class=" overflow-y-auto" style="width:300em;">
-            <div class="space-y-6">
+                    @empty
 
-                <!-- Header -->
+                        <flux:table.row>
+                            <flux:table.cell colspan="7" class="py-12 text-center">
+                                <div class="flex flex-col items-center justify-center">
+                                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl">
+                                        📄
+                                    </div>
+
+                                    <p class="mt-3 font-bold text-slate-700">
+                                        No contracts found
+                                    </p>
+
+                                    <p class="mt-1 text-xs text-slate-400">
+                                        Try changing your search or filter.
+                                    </p>
+                                </div>
+                            </flux:table.cell>
+                        </flux:table.row>
+
+                    @endforelse
+
+                </flux:table.rows>
+
+            </flux:table>
+        </div>
+    </div>
+
+    {{-- CREATE CONTRACT MODAL --}}
+    <flux:modal
+        name="create-contract"
+        class="!w-full !max-w-5xl overflow-y-auto"
+    >
+        <div class="space-y-6">
+
+            {{-- MODAL HEADER --}}
+            <div class="flex items-start gap-4">
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-xl font-bold text-white shadow-md shadow-blue-200">
+                    +
+                </div>
+
                 <div>
-                    <flux:heading size="lg">New Contract</flux:heading>
-                    <flux:text class="mt-2">
+                    <flux:heading size="lg" class="font-extrabold text-slate-900">
+                        New Contract
+                    </flux:heading>
+
+                    <flux:text class="mt-1 text-sm text-slate-500">
                         Upload the contract document and complete the required information.
                     </flux:text>
                 </div>
+            </div>
 
-                {{-- PDF Upload --}}
-                <flux:field>
+            <flux:separator />
 
-                    <flux:label>Contract PDF</flux:label>
+            {{-- PDF UPLOAD --}}
+            <flux:field>
+                <flux:label>Contract PDF</flux:label>
 
-                    <label
-                        for="contract_file"
-                        class="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-6 py-10 transition-all hover:border-sky-500 hover:bg-sky-50 dark:hover:bg-zinc-800"
-                    >
-
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="mb-4 h-14 w-14 text-zinc-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="1.5"
-                                d="M12 16V4m0 0l-4 4m4-4l4 4M5 20h14"
-                            />
-                        </svg>
-
-                        <p class="text-lg font-semibold text-zinc-700 dark:text-zinc-200">
-                            Click to Upload Contract PDF
-                        </p>
-
-                        <p class="mt-1 text-sm text-zinc-500">
-                            PDF files only • Maximum file size: 100 MB
-                        </p>
-
-                        <input
-                            id="contract_file"
-                            type="file"
-                            wire:model="contract_file"
-                            accept="application/pdf,.pdf"
-                            class="hidden"
-                        />
-
-                    </label>
-
-                    {{-- Uploading Indicator --}}
-                    <div
-                        wire:loading
-                        wire:target="contract_file"
-                        class="mt-4 flex items-center gap-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4 text-blue-700 dark:text-blue-300"
-                    >
-                        <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
-                            <circle
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                stroke-width="4"
-                                class="opacity-25"
-                            />
-                            <path
-                                fill="currentColor"
-                                class="opacity-75"
-                                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                            />
-                        </svg>
-
-                        Uploading PDF, please wait...
+                <label
+                    for="contract_file"
+                    class="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition hover:border-blue-500 hover:bg-blue-50"
+                >
+                    <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-2xl text-blue-700">
+                        ↑
                     </div>
 
-                    {{-- Selected File --}}
-                    @if ($contract_file && !$errors->has('contract_file'))
-                        <div class="mt-4 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-4">
+                    <p class="text-base font-extrabold text-slate-800">
+                        Click to Upload Contract PDF
+                    </p>
 
-                            <div class="flex items-center gap-4">
+                    <p class="mt-2 text-sm text-slate-500">
+                        PDF files only · Maximum file size: 100 MB
+                    </p>
 
-                                <div class="flex h-14 w-14 items-center justify-center rounded-lg bg-red-600 text-lg font-bold text-white">
-                                    PDF
-                                </div>
+                    <input
+                        id="contract_file"
+                        type="file"
+                        wire:model="contract_file"
+                        accept="application/pdf,.pdf"
+                        class="hidden"
+                    />
+                </label>
 
-                                <div class="min-w-0 flex-1">
+                {{-- UPLOAD PROGRESS --}}
+                <div
+                    wire:loading
+                    wire:target="contract_file"
+                    class="mt-4 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm font-semibold text-blue-700"
+                >
+                    <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                            class="opacity-25"
+                        />
+                        <path
+                            fill="currentColor"
+                            class="opacity-75"
+                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                        />
+                    </svg>
 
-                                    <p class="break-all font-semibold text-zinc-800 dark:text-white">
-                                        {{ $contract_file->getClientOriginalName() }}
-                                    </p>
+                    Uploading PDF, please wait...
+                </div>
 
-                                    <p class="text-sm text-zinc-500">
-                                        {{ number_format($contract_file->getSize() / 1024 / 1024, 2) }} MB
-                                    </p>
+                {{-- SELECTED FILE --}}
+                @if ($contract_file && !$errors->has('contract_file'))
+                    <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
 
-                                    <p class="mt-1 text-xs text-green-600 dark:text-green-400">
-                                        File uploaded successfully
-                                    </p>
+                        <div class="flex items-center gap-4">
 
-                                </div>
+                            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-red-600 text-lg font-extrabold text-white shadow-sm">
+                                PDF
+                            </div>
 
+                            <div class="min-w-0 flex-1">
+                                <p class="break-all font-bold text-slate-800">
+                                    {{ $contract_file->getClientOriginalName() }}
+                                </p>
+
+                                <p class="mt-1 text-sm text-slate-500">
+                                    {{ number_format($contract_file->getSize() / 1024 / 1024, 2) }} MB
+                                </p>
+
+                                <p class="mt-1 text-xs font-semibold text-emerald-700">
+                                    ✓ File uploaded successfully
+                                </p>
                             </div>
 
                         </div>
-                    @endif
+                    </div>
+                @endif
 
-                    {{-- Validation Error --}}
-                    @error('contract_file')
-                        <div class="mt-4 rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4 text-sm text-red-600 dark:text-red-400">
-                            {{ $message }}
-                        </div>
-                    @enderror
+                {{-- VALIDATION ERROR --}}
+                @error('contract_file')
+                    <div class="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+                        {{ $message }}
+                    </div>
+                @enderror
 
-                </flux:field>
+            </flux:field>
 
-                <flux:separator />
+            <flux:separator />
 
-                <!-- Form -->
+            {{-- CONTRACT FORM --}}
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {{-- LEFT COLUMN --}}
+                <div class="space-y-5">
 
-                    <div class="space-y-5">
+                    <div>
+                        <flux:input
+                            label="Contract Name"
+                            wire:model="contract_name"
+                            placeholder="Enter contract name"
+                        />
+                    </div>
 
-                        <flux:input label="Contract Name" wire:model="contract_name" rows="4"
-                            placeholder="Enter contract name" />
+                    {{-- CONTRACT TYPE --}}
+                    <flux:field>
+                        <flux:label>Contract Type</flux:label>
 
-                        <select wire:model.live="contract_type" class="w-full rounded-lg border p-2">
+                        <select
+                            wire:model.live="contract_type"
+                            class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        >
                             <option value="">Select Contract Type</option>
+
                             @foreach ($types as $type)
                                 <option value="{{ $type->contract_type }}">
                                     {{ $type->contract_type }}
                                 </option>
                             @endforeach
                         </select>
+                    </flux:field>
 
-                        @if ($contract_type === 'Employment Contract')
-                            <flux:input label="Position" wire:model="position"
-                                placeholder="e.g. Administrative Assistant" />
-
-                            <flux:select label="Department Assigned" wire:model="department_assigned">
-                                <option value="" hidden>Select Department</option>
-                                @foreach ($departments as $department)
-                                    <option value="{{ $department->id }}">{{ $department->department_name }}</option>
-                                @endforeach
-                            </flux:select>
-
-                        @endif
-
-
-                        @if ( (int)auth()->user()->department === 12 )
-
-                        <flux:select label="Department Assigned" wire:model="assigned_department">
-                                <option value="" hidden>Select Department</option>
-                                @foreach ($departments as $department)
-                                    <option value="{{ $department->id }}">{{ $department->department_name }}</option>
-                                @endforeach
-                            </flux:select>
-                        @endif
-
-                        @if ($contract_type === 'Transformer Rental Contract')
-                            
-                            <flux:input label="Customer Name" wire:model="customer_name"
-                                placeholder="" />
-
-                            <flux:input label="TC no." wire:model="tc_no"
-                                placeholder="" />
-
-                            <flux:input label="Account Number" wire:model="account_number"
-                                placeholder="11-1111-1111" />
-
-                        @endif
-
-                        @if ($contract_type === 'Goods Contract')
-                            <flux:input label="Customer Name" wire:model="customer_name"
-                                placeholder="customer name" />
-
-                            <flux:input
-                                label="Price"
-                                wire:model.live="price"
-                                placeholder="₱0.00"
-                            />
-
-                        @endif
-
-
-                        @if ($contract_type === 'Temporary Lighting Contract')
-
-                            <flux:input label="Customer Name" wire:model="customer_name"
-                                placeholder="customer name" />
-                                
-                            <flux:input label="TC no" wire:model="tc_no"
-                                placeholder="tc no." />
-
-                        @endif
-
-                        <flux:select label="Status" wire:model="status">
-                            <option value="">Select Status</option>
-                            <option>Active</option>
-                            <option>Completed</option>
-                            <option>Expired</option>
-                            <option>Cancelled</option>
-                        </flux:select>
-
-                        @if ($contract_type === 'Temporary Lighting Contract')
-                            <flux:textarea label="Address" wire:model="address"
-                                placeholder="address" />
-
-                        @endif
-
-                    </div>
-
-                    <div class="space-y-5">
-
-                        @if ($contract_type === 'Temporary Lighting Contract')
-                            <flux:input label="Account Number" wire:model="account_number"
-                                placeholder="Account #" />
-
-                            <flux:input label="Party of Second Part" wire:model="second_party"
-                                placeholder="name of second party" />
-
-                        @endif
-
-                        @if ($contract_type === 'Goods Contract')
-
-                            <flux:input label="Supplier" wire:model="supplier"
-                                placeholder="supplier name" />
-                                
-                            <flux:select label="Department Assigned" wire:model="proc_mode">
-                                <option value="" hidden>Select mode</option>
-                                @foreach ($procModes as $procMode)
-                                    <option value="{{ $procMode->id }}">{{ $procMode->mode }}</option>
-                                @endforeach
-                            </flux:select>
-
-                        @endif
-
-                        <flux:input type="date" label="Actual Date Started" wire:model="start_date" />
-
-                        <flux:input type="date" label="Expiration End" wire:model="end_date" />
-
-                        <flux:input type="hidden" wire:model="uploader_dept" readonly />
-
-                        <flux:input type="hidden" wire:model="uploaded_by" readonly />
+                    {{-- EMPLOYMENT CONTRACT --}}
+                    @if ($contract_type === 'Employment Contract')
 
                         <flux:input
-                            label=""
-                            wire:model="user_id"
-                            readonly
-                            type="hidden"
+                            label="Position"
+                            wire:model="position"
+                            placeholder="e.g. Administrative Assistant"
                         />
-                    </div>
+
+                        <flux:select label="Department Assigned" wire:model="department_assigned">
+                            <option value="" hidden>Select Department</option>
+
+                            @foreach ($departments as $department)
+                                <option value="{{ $department->id }}">
+                                    {{ $department->department_name }}
+                                </option>
+                            @endforeach
+                        </flux:select>
+
+                    @endif
+
+                    {{-- DEPARTMENT ASSIGNED --}}
+                    @if ((int) auth()->user()->department === 12)
+
+                        <flux:select label="Department Assigned" wire:model="assigned_department">
+                            <option value="" hidden>Select Department</option>
+
+                            @foreach ($departments as $department)
+                                <option value="{{ $department->id }}">
+                                    {{ $department->department_name }}
+                                </option>
+                            @endforeach
+                        </flux:select>
+
+                    @endif
+
+                    {{-- TRANSFORMER RENTAL --}}
+                    @if ($contract_type === 'Transformer Rental Contract')
+
+                        <flux:input
+                            label="Customer Name"
+                            wire:model="customer_name"
+                            placeholder="Enter customer name"
+                        />
+
+                        <flux:input
+                            label="TC No."
+                            wire:model="tc_no"
+                            placeholder="Enter TC number"
+                        />
+
+                        <flux:input
+                            label="Account Number"
+                            wire:model="account_number"
+                            placeholder="11-1111-1111"
+                        />
+
+                    @endif
+
+                    {{-- GOODS CONTRACT --}}
+                    @if ($contract_type === 'Goods Contract')
+
+                        <flux:input
+                            label="Customer Name"
+                            wire:model="customer_name"
+                            placeholder="Enter customer name"
+                        />
+
+                        <flux:input
+                            label="Price"
+                            wire:model.live="price"
+                            placeholder="₱0.00"
+                        />
+
+                    @endif
+
+                    {{-- TEMPORARY LIGHTING --}}
+                    @if ($contract_type === 'Temporary Lighting Contract')
+
+                        <flux:input
+                            label="Customer Name"
+                            wire:model="customer_name"
+                            placeholder="Enter customer name"
+                        />
+
+                        <flux:input
+                            label="TC No."
+                            wire:model="tc_no"
+                            placeholder="Enter TC number"
+                        />
+
+                    @endif
+
+                    {{-- STATUS --}}
+                    <flux:select label="Status" wire:model="status">
+                        <option value="">Select Status</option>
+                        <option>Active</option>
+                        <option>Completed</option>
+                        <option>Expired</option>
+                        <option>Cancelled</option>
+                    </flux:select>
+
+                    {{-- TEMPORARY LIGHTING ADDRESS --}}
+                    @if ($contract_type === 'Temporary Lighting Contract')
+
+                        <flux:textarea
+                            label="Address"
+                            wire:model="address"
+                            placeholder="Enter address"
+                        />
+
+                    @endif
 
                 </div>
 
-                <flux:separator />
+                {{-- RIGHT COLUMN --}}
+                <div class="space-y-5">
 
-                <!-- Footer -->
+                    {{-- TEMPORARY LIGHTING DETAILS --}}
+                    @if ($contract_type === 'Temporary Lighting Contract')
 
-                <div class="flex justify-end gap-3">
+                        <flux:input
+                            label="Account Number"
+                            wire:model="account_number"
+                            placeholder="Account number"
+                        />
 
-                    <flux:modal.close>
+                        <flux:input
+                            label="Party of Second Part"
+                            wire:model="second_party"
+                            placeholder="Name of second party"
+                        />
 
-                        <flux:button variant="ghost">
-                            Cancel
-                        </flux:button>
+                    @endif
 
-                    </flux:modal.close>
+                    {{-- GOODS DETAILS --}}
+                    @if ($contract_type === 'Goods Contract')
 
-                    <flux:button variant="primary" wire:click="save" wire:loading.attr="disabled">
+                        <flux:input
+                            label="Supplier"
+                            wire:model="supplier"
+                            placeholder="Supplier name"
+                        />
 
-                        <span wire:loading.remove wire:target="save">
-                            Save Contract
-                        </span>
+                        <flux:select label="Procurement Mode" wire:model="proc_mode">
+                            <option value="" hidden>Select mode</option>
 
-                        <span wire:loading wire:target="save">
-                            Saving...
-                        </span>
+                            @foreach ($procModes as $procMode)
+                                <option value="{{ $procMode->id }}">
+                                    {{ $procMode->mode }}
+                                </option>
+                            @endforeach
+                        </flux:select>
 
-                    </flux:button>
+                    @endif
+
+                    {{-- DATES --}}
+                    <div>
+                        <flux:input
+                            type="date"
+                            label="Actual Date Started"
+                            wire:model="start_date"
+                        />
+                    </div>
+
+                    <div>
+                        <flux:input
+                            type="date"
+                            label="Expiration End"
+                            wire:model="end_date"
+                        />
+                    </div>
+
+                    {{-- HIDDEN FIELDS --}}
+                    <flux:input
+                        type="hidden"
+                        wire:model="uploader_dept"
+                        readonly
+                    />
+
+                    <flux:input
+                        type="hidden"
+                        wire:model="uploaded_by"
+                        readonly
+                    />
+
+                    <flux:input
+                        type="hidden"
+                        wire:model="user_id"
+                        readonly
+                    />
 
                 </div>
 
             </div>
-        </flux:modal>
+
+            <flux:separator />
+
+            {{-- MODAL FOOTER --}}
+            <div class="flex flex-col-reverse justify-end gap-3 sm:flex-row">
+
+                <flux:modal.close>
+                    <flux:button
+                        variant="ghost"
+                        class="w-full sm:w-auto"
+                    >
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+
+                <flux:button
+                    variant="primary"
+                    color="blue"
+                    wire:click="save"
+                    wire:loading.attr="disabled"
+                    class="w-full shadow-sm sm:w-auto"
+                >
+                    <span wire:loading.remove wire:target="save">
+                        Save Contract
+                    </span>
+
+                    <span wire:loading wire:target="save">
+                        Saving...
+                    </span>
+                </flux:button>
+
+            </div>
+
+        </div>
+    </flux:modal>
 
 </div>
+

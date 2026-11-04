@@ -1,3 +1,4 @@
+
 <?php
 
 use Livewire\Component;
@@ -8,10 +9,11 @@ use App\Models\ContractTypes;
 use App\Models\Departments;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
 use Flux\Flux;
 
 new class extends Component {
-    
+
     use WithFileUploads;
     use WithPagination;
 
@@ -21,15 +23,25 @@ new class extends Component {
     public $lastName;
     public $username;
     public $password;
-    public $user; // Property to hold the user data for viewing
+
+    public $user = null;
+
     public $contract_types = [];
     public $availableContractTypes = [];
+
     public $user_type = 'User';
     public $department;
+
+    public $search = '';
 
     public function mount()
     {
         $this->availableContractTypes = ContractTypes::orderBy('contract_type')->get();
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
     }
 
     public function save()
@@ -51,7 +63,11 @@ new class extends Component {
             'password' => ['required', 'string', 'min:8'],
 
             'contract_types' => ['required', 'array', 'min:1'],
-            'contract_types.*' => ['required', 'integer', 'exists:contract_types,id'],
+            'contract_types.*' => [
+                'required',
+                'integer',
+                'exists:contract_types,id',
+            ],
 
             'user_type' => ['required', Rule::in(['Admin', 'User'])],
 
@@ -59,27 +75,24 @@ new class extends Component {
         ]);
 
         try {
-            // Upload avatar
             $avatarPath = null;
 
             if ($this->avatar) {
                 $avatarPath = $this->avatar->store('avatars', 'public');
             }
 
-            // Create user
             User::create([
-                'firstname' => $this->firstName,
-                'middlename' => $this->middleName,
-                'lastname' => $this->lastName,
-                'username' => $this->username,
-                'password' => Hash::make($this->password),
-                'user_type' => $this->user_type,
-                'contract_types' => $this->contract_types,
+                'firstname' => $validated['firstName'],
+                'middlename' => $validated['middleName'],
+                'lastname' => $validated['lastName'],
+                'username' => $validated['username'],
+                'password' => Hash::make($validated['password']),
+                'user_type' => $validated['user_type'],
+                'contract_types' => $validated['contract_types'],
                 'avatar' => $avatarPath,
-                'department' => $this->department,
+                'department' => $validated['department'],
             ]);
 
-            // Reset only form fields
             $this->reset([
                 'avatar',
                 'firstName',
@@ -93,10 +106,10 @@ new class extends Component {
 
             $this->user_type = 'User';
 
-            // Close modal
+            $this->resetValidation();
+
             Flux::modal('create-user')->close();
 
-            // Success notification
             Flux::toast(
                 heading: 'User Created',
                 text: 'The user has been successfully created.',
@@ -116,12 +129,25 @@ new class extends Component {
 
     public function render()
     {
-        $users = User::paginate(10);
-        $departments = Departments::get();
+        $users = User::query()
+            ->when($this->search, function ($query) {
+                $search = trim($this->search);
 
-        return view('components.users.⚡index',[
+                $query->where(function ($q) use ($search) {
+                    $q->where('firstname', 'like', "%{$search}%")
+                        ->orWhere('middlename', 'like', "%{$search}%")
+                        ->orWhere('lastname', 'like', "%{$search}%")
+                        ->orWhere('username', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('firstname')
+            ->paginate(10);
+
+        $departments = Departments::orderBy('department_name')->get();
+
+        return view('components.users.⚡index', [
             'users' => $users,
-            'departments' => $departments
+            'departments' => $departments,
         ]);
     }
 
@@ -132,18 +158,16 @@ new class extends Component {
         if ($user) {
             $user->delete();
 
-            // Show a success message
             Flux::toast(
                 heading: 'User Deleted',
                 text: 'The user has been successfully deleted.',
                 variant: 'success'
             );
         } else {
-            // Show an error message if the user is not found
             Flux::toast(
                 heading: 'User Not Found',
                 text: 'The user could not be found.',
-                variant: 'error'
+                variant: 'danger'
             );
         }
     }
@@ -156,7 +180,7 @@ new class extends Component {
             Flux::toast(
                 heading: 'User Not Found',
                 text: 'The user could not be found.',
-                variant: 'danger',
+                variant: 'danger'
             );
 
             return;
@@ -170,318 +194,585 @@ new class extends Component {
 };
 ?>
 
-<div class="space-y-4">
-    <div class="">
-        <flux:heading size="xl">Users</flux:heading>
-        <flux:text class="mb-2">Manage users</flux:text>
-        <flux:separator />
-    </div>
-    <div class="flex items-center gap-3">
-        <flux:field class="w-32">
-            <flux:input wire:model.live.debounce.300ms="firstname" icon="magnifying-glass" placeholder="search user" size="sm" />
-        </flux:field>
+<div class="min-h-screen space-y-6 bg-slate-50 p-4 sm:p-6 lg:p-8">
 
-        <flux:modal.trigger name="create-user">
-            <flux:button size="sm" variant="primary" color="sky">Add User</flux:button>
-        </flux:modal.trigger>
-    </div>
-    <flux:table :paginate="$users" sticky class="table-stripped">
-        <flux:table.columns>
-            <flux:table.column>Member</flux:table.column>
-            <flux:table.column>Username</flux:table.column>
-            <flux:table.column></flux:table.column>
-        </flux:table.columns>
+    {{-- PAGE HEADER --}}
+    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div class="flex items-center gap-3">
 
-        <flux:table.rows>
-            @forelse ($users as $user)
-                <flux:table.row>
-                     <flux:table.cell class="flex items-center gap-3">
-                        <flux:avatar
-                            src="{{ asset('storage/' . $user->avatar) }}"
-                        />
-                        {{ $user->firstname ?? 'null' }} {{ $user->middlename ?? 'null' }} {{ $user->lastname ?? null }} {{ $user->subName ?? null}}
-                    </flux:table.cell>
-                    <flux:table.cell>
-                        {{ $user->username ?? 'null' }}
-                    </flux:table.cell>
-                        <flux:table.cell>
-                            <flux:button 
-                                icon="eye"
-                                color="cyan"
-                                variant="primary"
-                                size="sm"
-                                class="cursor-pointer"
-                                :href="route('users.show', $user->id)"
-                                wire:navigate
-                                >
-                                View
-                            </flux:button>
-                            {{-- <flux:button 
-                                icon="plus-circle"
-                                color="blue"
-                                variant="primary"
-                                size="sm"
-                                class="cursor-pointer"
-                                wire:click="checkRegistration('{{ $user->xR }}', '{{ $user->membershipNo }}')"
-                                confirm="Are you sure you want to register this user?"
-                                >
-                                Register
-                            </flux:button> --}}
-                        </flux:table.cell>
-                    </flux:table.row>
-            @empty
-                <flux:table.row>
-                    <flux:table.cell colspan="4" class="text-center py-4 text-gray-500">
-                        No Data Found
-                    </flux:table.cell>
-                </flux:table.row>
-            @endforelse
-        </flux:table.rows>
-    </flux:table>
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-lg font-black text-blue-700">
+                US
+            </div>
 
-<flux:modal name="create-user" class="w-full max-w-7xl max-h-[90vh] overflow-y-auto">
+            <div>
+                <flux:heading size="xl" class="font-extrabold tracking-tight text-slate-900">
+                    Users
+                </flux:heading>
 
-    <form wire:submit="save" class="space-y-6">
+                <flux:text class="mt-1 text-sm text-slate-500">
+                    Manage system users, departments, and access permissions.
+                </flux:text>
+            </div>
 
-        {{-- Header --}}
-        <div>
-            <flux:heading size="lg">Create User</flux:heading>
-            <flux:text class="mt-2">
-                Fill in the user's information.
-            </flux:text>
         </div>
 
-        {{-- Personal Information --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <flux:modal.trigger name="create-user">
+            <flux:button
+                size="sm"
+                variant="primary"
+                color="blue"
+                class="!h-10 cursor-pointer px-5 font-bold shadow-sm"
+            >
+                <span class="mr-1 text-lg">+</span>
+                Add User
+            </flux:button>
+        </flux:modal.trigger>
+    </div>
 
-            {{-- Left Column --}}
-            <div class="space-y-4">
+    {{-- SUMMARY CARDS --}}
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 
-                {{-- Avatar Upload --}}
-                <div class="flex flex-col items-center">
+        <div class="rounded-2xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-blue-600">
+                Total Users
+            </p>
 
-                    <label for="avatar" class="group relative cursor-pointer">
+            <p class="mt-2 text-3xl font-black text-blue-900">
+                {{ \App\Models\User::count() }}
+            </p>
 
-                        <div class="w-16 h-16 rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center group-hover:border-blue-500 transition">
+            <p class="mt-1 text-xs font-medium text-blue-600">
+                Registered system accounts
+            </p>
+        </div>
 
-                            @if ($avatar ?? null)
-                                <img
-                                    src="{{ $avatar->temporaryUrl() }}"
-                                    alt="Avatar Preview"
-                                    class="w-full h-full object-cover"
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-emerald-600">
+                Administrators
+            </p>
+
+            <p class="mt-2 text-3xl font-black text-emerald-900">
+                {{ \App\Models\User::where('user_type', 'Admin')->count() }}
+            </p>
+
+            <p class="mt-1 text-xs font-medium text-emerald-600">
+                Users with administrator access
+            </p>
+        </div>
+
+        <div class="rounded-2xl border border-violet-200 bg-violet-50 p-5 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-violet-600">
+                Departments
+            </p>
+
+            <p class="mt-2 text-3xl font-black text-violet-900">
+                {{ $departments->count() }}
+            </p>
+
+            <p class="mt-1 text-xs font-medium text-violet-600">
+                Available departments
+            </p>
+        </div>
+
+    </div>
+
+    {{-- USERS TABLE CARD --}}
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+        {{-- TABLE HEADER --}}
+        <div class="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+
+            <div>
+                <h3 class="text-base font-extrabold text-slate-900">
+                    Registered Users
+                </h3>
+
+                <p class="mt-1 text-xs text-slate-500">
+                    View and manage users registered in the system.
+                </p>
+            </div>
+
+            <div class="w-full sm:max-w-xs">
+                <flux:input
+                    wire:model.live.debounce.300ms="search"
+                    icon="magnifying-glass"
+                    placeholder="Search name or username..."
+                    size="sm"
+                />
+            </div>
+
+        </div>
+
+        {{-- TABLE --}}
+        <div class="overflow-x-auto px-4 sm:px-5">
+
+            <flux:table :paginate="$users" sticky>
+
+                <flux:table.columns>
+                    <flux:table.column class="!pl-5">
+                        Member
+                    </flux:table.column>
+
+                    <flux:table.column>
+                        Username
+                    </flux:table.column>
+
+                    <flux:table.column>
+                        User Type
+                    </flux:table.column>
+
+                    <flux:table.column>
+                        Department
+                    </flux:table.column>
+
+                    <flux:table.column align="end">
+                        Action
+                    </flux:table.column>
+                </flux:table.columns>
+
+                <flux:table.rows>
+
+                    @forelse ($users as $user)
+
+                        <flux:table.row
+                            class="group cursor-pointer transition-colors duration-200 hover:!bg-blue-50/80"
+                            onclick="window.location.href='{{ route('users.show', $user->id) }}'"
+                        >
+
+                            {{-- MEMBER --}}
+                            <flux:table.cell class="!py-4 !pl-5">
+                                <div class="flex min-w-[220px] items-center gap-3">
+
+                                    @if ($user->avatar)
+                                        <img
+                                            src="{{ asset('storage/' . $user->avatar) }}"
+                                            alt="{{ $user->firstname }}"
+                                            class="h-11 w-11 shrink-0 rounded-xl border border-slate-200 object-cover"
+                                        >
+                                    @else
+                                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-sm font-black uppercase text-blue-700">
+                                            {{ substr($user->firstname ?? 'U', 0, 1) }}{{ substr($user->lastname ?? '', 0, 1) }}
+                                        </div>
+                                    @endif
+
+                                    <div class="min-w-0">
+                                        <p class="font-bold text-slate-800">
+                                            {{ trim(($user->firstname ?? '') . ' ' . ($user->middlename ?? '') . ' ' . ($user->lastname ?? '') . ' ' . ($user->subName ?? '')) }}
+                                        </p>
+
+                                        <p class="mt-0.5 text-xs text-slate-400">
+                                            System member
+                                        </p>
+                                    </div>
+
+                                </div>
+                            </flux:table.cell>
+
+                            {{-- USERNAME --}}
+                            <flux:table.cell class="!py-4">
+                                <span class="font-medium text-slate-600">
+                                    {{ $user->username ?? '--' }}
+                                </span>
+                            </flux:table.cell>
+
+                            {{-- USER TYPE --}}
+                            <flux:table.cell class="!py-4">
+                                @if ($user->user_type === 'Admin')
+                                    <span class="inline-flex items-center rounded-lg bg-violet-100 px-3 py-1.5 text-xs font-bold text-violet-800 ring-1 ring-inset ring-violet-200">
+                                        Administrator
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center rounded-lg bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-800 ring-1 ring-inset ring-blue-200">
+                                        User
+                                    </span>
+                                @endif
+                            </flux:table.cell>
+
+                            {{-- DEPARTMENT --}}
+                            <flux:table.cell class="!py-4">
+                                @php
+                                    $departmentName = \App\Models\Departments::find($user->department)?->department_name;
+                                @endphp
+
+                                <span class="text-sm font-medium text-slate-600">
+                                    {{ $departmentName ?? '--' }}
+                                </span>
+                            </flux:table.cell>
+
+                            {{-- ACTION --}}
+                            <flux:table.cell class="!py-4 text-right">
+                                <span class="inline-flex items-center gap-1 text-sm font-bold text-blue-600 transition-colors group-hover:text-blue-800">
+                                    View
+                                    <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                                </span>
+                            </flux:table.cell>
+
+                        </flux:table.row>
+
+                    @empty
+
+                        <flux:table.row>
+                            <flux:table.cell colspan="5" class="!py-12 text-center">
+
+                                <div class="flex flex-col items-center justify-center gap-2">
+
+                                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl">
+                                        👥
+                                    </div>
+
+                                    <p class="font-bold text-slate-700">
+                                        No users found
+                                    </p>
+
+                                    <p class="text-sm text-slate-400">
+                                        @if ($search)
+                                            No users match your search.
+                                        @else
+                                            Add your first user to get started.
+                                        @endif
+                                    </p>
+
+                                </div>
+
+                            </flux:table.cell>
+                        </flux:table.row>
+
+                    @endforelse
+
+                </flux:table.rows>
+
+            </flux:table>
+
+        </div>
+    </div>
+
+
+    {{-- CREATE USER MODAL --}}
+    <flux:modal
+        name="create-user"
+        class="!w-full !max-w-4xl !max-h-[90vh] overflow-y-auto"
+    >
+
+        <form wire:submit="save" class="space-y-6">
+
+            {{-- MODAL HEADER --}}
+            <div class="border-b border-slate-200 pb-4">
+                <div class="flex items-center gap-3">
+
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-lg font-black text-blue-700">
+                        +
+                    </div>
+
+                    <div>
+                        <flux:heading size="lg" class="font-extrabold text-slate-900">
+                            Create User
+                        </flux:heading>
+
+                        <flux:text class="mt-1 text-sm text-slate-500">
+                            Fill in the user's personal information and system access.
+                        </flux:text>
+                    </div>
+
+                </div>
+            </div>
+
+            {{-- PERSONAL INFORMATION --}}
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+
+                <h3 class="mb-5 text-sm font-extrabold text-slate-800">
+                    Personal Information
+                </h3>
+
+                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+                    {{-- LEFT COLUMN --}}
+                    <div class="space-y-4">
+
+                        {{-- AVATAR --}}
+                        <div class="flex flex-col items-center rounded-xl border border-dashed border-slate-300 bg-white p-5">
+
+                            <label for="avatar" class="group relative cursor-pointer">
+
+                                <div class="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-100 transition group-hover:border-blue-500">
+
+                                    @if ($avatar)
+                                        <img
+                                            src="{{ $avatar->temporaryUrl() }}"
+                                            alt="Avatar Preview"
+                                            class="h-full w-full object-cover"
+                                        >
+                                    @else
+                                        <span class="text-3xl text-slate-400">👤</span>
+                                    @endif
+
+                                </div>
+
+                                <input
+                                    id="avatar"
+                                    type="file"
+                                    class="hidden"
+                                    accept="image/jpeg,image/png"
+                                    wire:model="avatar"
                                 >
-                            @else
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    class="w-14 h-14 text-zinc-400"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="1.5"
-                                        d="M15.75 6.75a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 19.5a7.5 7.5 0 0115 0"
-                                    />
-                                </svg>
-                            @endif
+
+                            </label>
+
+                            <p class="mt-3 text-sm font-bold text-slate-700">
+                                Profile Picture
+                            </p>
+
+                            <p class="mt-1 text-xs text-slate-400">
+                                JPG or PNG, maximum 2MB
+                            </p>
+
+                            <div wire:loading wire:target="avatar" class="mt-2 text-sm font-medium text-blue-600">
+                                Uploading image...
+                            </div>
+
+                            @error('avatar')
+                                <p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>
+                            @enderror
 
                         </div>
 
-                        <input
-                            id="avatar"
-                            type="file"
-                            class="hidden"
-                            accept="image/jpeg,image/png"
-                            wire:model="avatar"
+                        <flux:input
+                            label="First Name"
+                            wire:model="firstName"
+                            placeholder="Enter first name"
+                            required
                         />
 
-                    </label>
+                        <flux:input
+                            label="Middle Name"
+                            wire:model="middleName"
+                            placeholder="Enter middle name"
+                        />
 
-                    <p class="mt-3 text-sm text-zinc-500">
-                        Click to upload profile picture
-                    </p>
+                        <flux:input
+                            label="Last Name"
+                            wire:model="lastName"
+                            placeholder="Enter last name"
+                            required
+                        />
 
-                    <div wire:loading wire:target="avatar" class="mt-2 text-sm text-blue-500">
-                        Uploading image...
                     </div>
 
-                    @error('avatar')
-                        <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-                    @enderror
+                    {{-- RIGHT COLUMN --}}
+                    <div class="space-y-4">
+
+                        <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                            <p class="text-sm font-bold text-blue-900">
+                                Account Credentials
+                            </p>
+
+                            <p class="mt-1 text-xs text-blue-700">
+                                These details will be used to sign in to the system.
+                            </p>
+                        </div>
+
+                        <flux:input
+                            label="Username"
+                            wire:model="username"
+                            placeholder="Enter username"
+                            required
+                        />
+
+                        @error('username')
+                            <p class="-mt-2 text-xs font-medium text-red-600">{{ $message }}</p>
+                        @enderror
+
+                        <flux:input
+                            label="Password"
+                            type="password"
+                            wire:model="password"
+                            placeholder="Enter password"
+                            required
+                        />
+
+                        @error('password')
+                            <p class="-mt-2 text-xs font-medium text-red-600">{{ $message }}</p>
+                        @enderror
+
+                        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                            <p class="text-xs font-bold text-amber-800">
+                                Password Requirements
+                            </p>
+
+                            <p class="mt-1 text-xs text-amber-700">
+                                Use a password with at least 8 characters.
+                            </p>
+                        </div>
+
+                    </div>
 
                 </div>
 
-                {{-- Name --}}
-                <flux:input
-                    label="First Name"
-                    wire:model="firstName"
-                    placeholder="Enter first name"
-                />
-
-                <flux:input
-                    label="Middle Name"
-                    wire:model="middleName"
-                    placeholder="Enter middle name"
-                />
-
-                <flux:input
-                    label="Last Name"
-                    wire:model="lastName"
-                    placeholder="Enter last name"
-                />
-
             </div>
 
-            {{-- Right Column --}}
-            <div class="space-y-4 mt-3">
+            {{-- USER ACCESS --}}
+            <div class="rounded-2xl border border-slate-200 bg-white p-5">
 
-                <flux:input
-                    label="Username"
-                    wire:model="username"
-                    placeholder="Enter username"
-                />
+                <h3 class="text-sm font-extrabold text-slate-800">
+                    User Access
+                </h3>
 
-                <flux:input
-                    label="Password"
-                    type="password"
-                    wire:model="password"
-                    placeholder="Enter password"
-                />
-
-            </div>
-
-        </div>
-
-        {{-- User Type and Department --}}
-        <flux:fieldset>
-
-            <flux:legend>User Type</flux:legend>
-
-            <flux:text class="mt-1 mb-4 text-sm text-zinc-500">
-                Select the user's access level.
-            </flux:text>
-
-            <flux:select
-                wire:model="user_type"
-                placeholder="Select user type"
-            >
-                <flux:select.option value="User">
-                    User
-                </flux:select.option>
-
-                <flux:select.option value="Admin">
-                    Administrator
-                </flux:select.option>
-            </flux:select>
-
-            @error('user_type')
-                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-            @enderror
-
-            <flux:legend class="mt-4">User Department</flux:legend>
-
-            <flux:text class="mt-1 mb-4 text-sm text-zinc-500">
-                Select the user's Department.
-            </flux:text>
-
-            <flux:select
-                wire:model="department"
-                placeholder="Select Department"
-            >
-                @foreach ($departments as $department)
-                    <flux:select.option value="{{ $department->id }}">
-                        {{ $department->department_name }}
-                    </flux:select.option>
-                @endforeach
-            </flux:select>
-
-            @error('department')
-                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-            @enderror
-
-        </flux:fieldset>
-
-        {{-- Allowed Contract Types --}}
-        <flux:fieldset>
-
-            <flux:legend>Allowed Contract Types</flux:legend>
-
-            <flux:text class="mt-1 mb-4 text-sm text-zinc-500">
-                Select the contract types this user is allowed to create and manage.
-            </flux:text>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-
-                @foreach ($availableContractTypes as $type)
-
-                    <label class="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition">
-
-                        <input
-                            type="checkbox"
-                            wire:model="contract_types"
-                            value="{{ $type->id }}"
-                            class="rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
-                        >
-
-                        <span class="text-sm">
-                            {{ $type->contract_type }}
-                        </span>
-
-                    </label>
-
-                @endforeach
-
-            </div>
-
-            @error('contract_types')
-                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-            @enderror
-
-        </flux:fieldset>
-
-        {{-- General Validation Errors --}}
-        @if ($errors->any())
-            <div class="rounded-lg border border-red-200 bg-red-50 dark:bg-red-500/10 dark:border-red-500/20 p-4">
-                <p class="text-sm font-semibold text-red-600 dark:text-red-400">
-                    Please check the form for errors.
+                <p class="mt-1 text-xs text-slate-500">
+                    Configure the user's role and department assignment.
                 </p>
+
+                <div class="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
+
+                    {{-- USER TYPE --}}
+                    <div>
+                        <flux:select
+                            label="User Type"
+                            wire:model="user_type"
+                            placeholder="Select user type"
+                        >
+                            <flux:select.option value="User">
+                                User
+                            </flux:select.option>
+
+                            <flux:select.option value="Admin">
+                                Administrator
+                            </flux:select.option>
+                        </flux:select>
+
+                        @error('user_type')
+                            <p class="mt-1 text-xs font-medium text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- DEPARTMENT --}}
+                    <div>
+                        <flux:select
+                            label="User Department"
+                            wire:model="department"
+                            placeholder="Select department"
+                        >
+                            @foreach ($departments as $departmentItem)
+                                <flux:select.option value="{{ $departmentItem->id }}">
+                                    {{ $departmentItem->department_name }}
+                                </flux:select.option>
+                            @endforeach
+                        </flux:select>
+
+                        @error('department')
+                            <p class="mt-1 text-xs font-medium text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                </div>
+
             </div>
-        @endif
 
-        {{-- Footer --}}
-        <div class="flex justify-end gap-3 border-t border-zinc-200 dark:border-zinc-700 pt-4">
+            {{-- ALLOWED CONTRACT TYPES --}}
+            <div class="rounded-2xl border border-slate-200 bg-white p-5">
 
-            <flux:modal.close>
-                <flux:button type="button" variant="ghost">
-                    Cancel
+                <h3 class="text-sm font-extrabold text-slate-800">
+                    Allowed Contract Types
+                </h3>
+
+                <p class="mt-1 text-xs text-slate-500">
+                    Select which contract types this user is allowed to create and manage.
+                </p>
+
+                <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+                    @forelse ($availableContractTypes as $type)
+
+                        <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 transition hover:border-blue-300 hover:bg-blue-50">
+
+                            <input
+                                type="checkbox"
+                                wire:model="contract_types"
+                                value="{{ $type->id }}"
+                                class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            >
+
+                            <span class="text-sm font-semibold text-slate-700">
+                                {{ $type->contract_type }}
+                            </span>
+
+                        </label>
+
+                    @empty
+
+                        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 sm:col-span-2">
+                            <p class="text-sm font-semibold text-amber-800">
+                                No contract types available.
+                            </p>
+
+                            <p class="mt-1 text-xs text-amber-700">
+                                Create contract types before assigning them to users.
+                            </p>
+                        </div>
+
+                    @endforelse
+
+                </div>
+
+                @error('contract_types')
+                    <p class="mt-3 text-xs font-medium text-red-600">{{ $message }}</p>
+                @enderror
+
+                @error('contract_types.*')
+                    <p class="mt-3 text-xs font-medium text-red-600">{{ $message }}</p>
+                @enderror
+
+            </div>
+
+            {{-- GENERAL VALIDATION ERRORS --}}
+            @if ($errors->any())
+                <div class="rounded-xl border border-red-200 bg-red-50 p-4">
+
+                    <p class="text-sm font-bold text-red-700">
+                        Please check the form for errors.
+                    </p>
+
+                    <ul class="mt-2 list-inside list-disc space-y-1 text-xs text-red-600">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+
+                </div>
+            @endif
+
+            {{-- MODAL FOOTER --}}
+            <div class="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
+
+                <flux:modal.close>
+                    <flux:button
+                        type="button"
+                        variant="ghost"
+                        class="w-full cursor-pointer sm:w-auto"
+                    >
+                        Cancel
+                    </flux:button>
+                </flux:modal.close>
+
+                <flux:button
+                    type="submit"
+                    variant="primary"
+                    color="blue"
+                    class="w-full cursor-pointer px-6 font-bold sm:w-auto"
+                    wire:loading.attr="disabled"
+                    wire:target="save,avatar"
+                >
+                    <span wire:loading.remove wire:target="save">
+                        Save User
+                    </span>
+
+                    <span wire:loading wire:target="save">
+                        Saving User...
+                    </span>
                 </flux:button>
-            </flux:modal.close>
 
-            <flux:button
-                type="submit"
-                variant="primary"
-                class="cursor-pointer"
-                wire:loading.attr="disabled"
-                wire:target="save,avatar"
-            >
-                <span wire:loading.remove wire:target="save">
-                    Save User
-                </span>
+            </div>
 
-                <span wire:loading wire:target="save">
-                    Saving...
-                </span>
-            </flux:button>
+        </form>
 
-        </div>
-
-    </form>
-
-</flux:modal>
-
-
+    </flux:modal>
 
 </div>
-
